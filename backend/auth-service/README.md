@@ -1,18 +1,19 @@
-## Быстрый старт
+## Начало работы
 
 1.  **Клонируйте репозиторий и перейдите в `backend`:**
     ```bash
     cd backend
     ```
-2.  **Соберите и запустите сервис через Docker Compose:**
+2.  **Настройте переменные среды**
+3.  **Соберите и запустите сервис через Docker Compose:**
     ```bash
     docker-compose up --build -d
     ```
-3.  **Микросервис доступен через:**
+4.  **Микросервис доступен через:**
     - API: http://localhost:8000
     - Swagger Docs: http://localhost:8000/docs
     - PostgreSQL Database: localhost:5432
-4.  **Остановка:**
+5.  **Остановка:**
     ```bash
     docker-compose down
     ```
@@ -21,6 +22,15 @@
 
 Создайте файл `.env` в папке `auth-service`. Установите необходимые значения следующим переменным:
 
-- `DATABASE_URL` - Строка для подключения к PostgreSQL (пример `postgresql://user:password@db:5432/authdb`)
+### Настройки базы данныз
+- `POSTGRES_USER` - Имя пользователя (по умолчанию: `auth_user`)
+- `POSTGRES_PASSWORD` - Пароль (**обязательно измените!**)
+- `POSTGRES_DB` - Название бд (по умолчанию: `auth_db`)
+- `POSTGRES_HOST` - Хост бд (по умолчанию: `auth_db` для Docker'а)
+- `POSTGRES_PORT` - Порт (по умолчанию: `5432`)
+- `DATABASE_URL` - Строка подключения, созданная из переменных выше
+
+### Общие настройки
 - `SECRET_KEY` - Ключ для генерации JWT
+- `DEBUG` - установите `False` в продакшене
 - `ALLOWED_ORIGINS` - Настройки доменов для CORS (пример `http://localhost:3000,http://127.0.0.1:3000`)
