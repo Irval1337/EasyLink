@@ -2,20 +2,18 @@ services:
   auth_db:
     image: postgres:15
     container_name: easylink_auth_db
-    env_file:
-      - ./auth-service/.env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${AUTH_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${AUTH_POSTGRES_PORT}:5432"
     volumes:
       - auth_db_data:/var/lib/postgresql/data
     networks:
       - easylink_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,19 +23,60 @@ services:
     container_name: easylink_auth_service
     ports:
       - "8000:8000"
-    env_file:
-      - ./auth-service/.env
+    environment:
+      DATABASE_URL: ${AUTH_DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     depends_on:
       auth_db:
         condition: service_healthy
     networks:
       - easylink_network
+    restart: unless-stopped
+
+  url_db:
+    image: postgres:15
+    container_name: easylink_url_db
+    environment:
+      POSTGRES_USER: ${URL_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${URL_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${URL_POSTGRES_DB}
+    ports:
+      - "${URL_POSTGRES_PORT}:5432"
     volumes:
-      - ./auth-service:/app
+      - url_db_data:/var/lib/postgresql/data
+    networks:
+      - easylink_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${URL_POSTGRES_USER} -d ${URL_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  url_service:
+    build: ./url-service
+    container_name: easylink_url_service
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: ${URL_DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+    depends_on:
+      url_db:
+        condition: service_healthy
+      auth_service:
+        condition: service_started
+    networks:
+      - easylink_network
     restart: unless-stopped
 
 volumes:
   auth_db_data:
+  url_db_data:
 
 networks:
   easylink_network:

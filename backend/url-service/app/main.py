@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.auth import router
+from app.config import ALLOWED_ORIGINS, DEBUG, MAX_URL_LENGTH, SHORT_CODE_LENGTH
 from app.database import init_db
-from app.config import ALLOWED_ORIGINS
+from app.api import urls, redirect
 
 app = FastAPI(
-    title="EasyLink Auth Service",
-    version="1.0.1"
+    title="EasyLink URL Shortener",
+    version="1.0.1",
+    debug=DEBUG
 )
 
 app.add_middleware(
@@ -21,12 +22,13 @@ app.add_middleware(
 async def startup_event():
     init_db()
 
-app.include_router(router, tags=["auth"])
-
 @app.get("/")
-def root():
-    return {"message": "EasyLink Auth Service is running"}
+async def root():
+    return {"message": "EasyLink URL Shortener Service is running"}
 
 @app.get("/health")
-def health_check():
+async def health_check():
     return {"status": "healthy"}
+
+app.include_router(urls.router, tags=["URLs"])
+app.include_router(redirect.router, tags=["Redirect"])
