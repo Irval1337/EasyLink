@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.auth import router
+from app.api.users import router
 from app.database import init_db
 from app.config import ALLOWED_ORIGINS
 
 app = FastAPI(
-    title="EasyLink Auth Service",
-    version="1.0.1"
+    title="EasyLink Users Service",
+    version="1.0.2"
 )
 
 app.add_middleware(
@@ -21,11 +21,11 @@ app.add_middleware(
 async def startup_event():
     init_db()
 
-app.include_router(router, tags=["auth"])
+app.include_router(router, tags=["users"])
 
 @app.get("/")
 def root():
-    return {"message": "EasyLink Auth Service is running"}
+    return {"message": "EasyLink Users Service is running"}
 
 @app.get("/health")
 def health_check():

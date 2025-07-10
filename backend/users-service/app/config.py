@@ -4,7 +4,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = config("DATABASE_URL", default="postgresql://auth_user:auth_password@localhost:5432/auth_db")
+DATABASE_URL = config("DATABASE_URL", default="postgresql://users_user:users_password_123@localhost:5432/users_db")
 
 SECRET_KEY = config("SECRET_KEY", default="super-secret")
 ALGORITHM = "HS256"

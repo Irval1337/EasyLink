@@ -1,35 +1,35 @@
 services:
-  auth_db:
+  users_db:
     image: postgres:15
-    container_name: easylink_auth_db
+    container_name: easylink_users_db
     environment:
-      POSTGRES_USER: ${AUTH_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${AUTH_POSTGRES_DB}
+      POSTGRES_USER: ${USERS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${USERS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${USERS_POSTGRES_DB}
     ports:
-      - "${AUTH_POSTGRES_PORT}:5432"
+      - "${USERS_POSTGRES_PORT}:5432"
     volumes:
-      - auth_db_data:/var/lib/postgresql/data
+      - users_db_data:/var/lib/postgresql/data
     networks:
       - easylink_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${USERS_POSTGRES_USER} -d ${USERS_POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  auth_service:
-    build: ./auth-service
-    container_name: easylink_auth_service
+  users_service:
+    build: ./users-service
+    container_name: easylink_users_service
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: ${AUTH_DATABASE_URL}
+      DATABASE_URL: ${USERS_DATABASE_URL}
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     depends_on:
-      auth_db:
+      users_db:
         condition: service_healthy
     networks:
       - easylink_network
@@ -64,18 +64,18 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+      USERS_SERVICE_URL: ${USERS_SERVICE_URL}
     depends_on:
       url_db:
         condition: service_healthy
-      auth_service:
+      users_service:
         condition: service_started
     networks:
       - easylink_network
     restart: unless-stopped
 
 volumes:
-  auth_db_data:
+  users_db_data:
   url_db_data:
 
 networks:

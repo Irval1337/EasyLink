@@ -13,7 +13,7 @@ router = APIRouter()
 @router.get("/{short_code}")
 async def redirect_url(
     session: SessionDep,
-    short_code: str = Path(..., pattern=f"^[a-zA-Z0-9_-]{4,MAX_CUSTOM_URL_LENGTH}$")
+    short_code: str = Path(..., pattern=f"^[a-zA-Z0-9_-]{{4,{MAX_CUSTOM_URL_LENGTH}}}$")
 ):
     url = get_url_by_short_code(session, short_code)
     

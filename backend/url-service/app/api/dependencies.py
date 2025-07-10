@@ -2,25 +2,31 @@ import httpx
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-from app.config import AUTH_SERVICE_URL
+from app.config import USERS_SERVICE_URL
 
 security = HTTPBearer(auto_error=False)
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[dict]:
     if not credentials:
+        print("No credentials provided")
         return None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{AUTH_SERVICE_URL}/verify-token",
+                f"{USERS_SERVICE_URL}/verify-token",
                 headers={"Authorization": f"Bearer {credentials.credentials}"}
             )
             
+            print(f"Verify token response status: {response.status_code}")
+            print(f"Verify token response content: {response.text}")
+            
             if response.status_code == 200:
                 user_data = response.json()
+                print(f"User data: {user_data}")
                 return user_data
             return None
     except Exception as e:
+        print(f"Error verifying token: {e}")
         return None
 
 async def get_current_user(user_data: dict = Depends(verify_token)) -> dict:

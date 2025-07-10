@@ -214,7 +214,7 @@ __marimo__/
 .env.local
 .env.*.local
 *.env
-auth-service/.env
+users-service/.env
 backend/**/.env
 
 # Database

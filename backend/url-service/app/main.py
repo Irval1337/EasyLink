@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.config import ALLOWED_ORIGINS, DEBUG, MAX_URL_LENGTH, SHORT_CODE_LENGTH
+from app.config import ALLOWED_ORIGINS, DEBUG, MAX_CUSTOM_URL_LENGTH, SHORT_CODE_LENGTH
 from app.database import init_db
 from app.api import urls, redirect
 
 app = FastAPI(
     title="EasyLink URL Shortener",
-    version="1.0.1",
+    version="1.0.2",
     debug=DEBUG
 )
 
