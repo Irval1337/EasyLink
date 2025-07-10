@@ -8,6 +8,9 @@ engine = create_engine(DATABASE_URL)
 def init_db():
     from app.models.url import Url
     SQLModel.metadata.create_all(engine)
+    
+    from app.migrations.add_password_field import upgrade
+    upgrade()
 
 def get_session():
     with Session(engine) as session:

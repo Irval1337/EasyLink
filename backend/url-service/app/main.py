@@ -2,11 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import ALLOWED_ORIGINS, DEBUG, MAX_CUSTOM_URL_LENGTH, SHORT_CODE_LENGTH
 from app.database import init_db
-from app.api import urls, redirect
+from app.api import urls, redirect, admin
 
 app = FastAPI(
     title="EasyLink URL Shortener",
-    version="1.0.2",
+    version="1.0.3",
     debug=DEBUG
 )
 
@@ -32,3 +32,4 @@ async def health_check():
 
 app.include_router(urls.router, tags=["URLs"])
 app.include_router(redirect.router, tags=["Redirect"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])

@@ -74,6 +74,20 @@ services:
       - easylink_network
     restart: unless-stopped
 
+  url_cleanup:
+    build: ./url-service
+    container_name: easylink_url_cleanup
+    command: python cleanup_scheduler.py
+    environment:
+      URL_SERVICE_URL: ${URL_SERVICE_URL}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+    depends_on:
+      url_service:
+        condition: service_started
+    networks:
+      - easylink_network
+    restart: unless-stopped
+
 volumes:
   users_db_data:
   url_db_data:
