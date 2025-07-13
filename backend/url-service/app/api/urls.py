@@ -5,9 +5,9 @@ from typing import Optional
 from datetime import datetime
 
 from app.database import SessionDep
-from app.schemas.url import UrlCreate, UrlUpdate, UrlResponse, UrlListResponse, UrlStats
+from app.schemas.url import UrlCreate, UrlUpdate, UrlResponse, UrlListResponse
 from app.crud.url import (
-    create_url, get_url_by_short_code, increment_click_count,
+    create_url, get_url_by_short_code,
     get_user_urls, get_url_by_id, update_url, deactivate_url
 )
 from app.api.dependencies import get_current_user, get_current_user_optional
@@ -21,7 +21,6 @@ def format_url_response(url, request: Request) -> UrlResponse:
         original_url=url.original_url,
         short_code=url.short_code,
         short_url=f"{base_url}/{url.short_code}",
-        click_count=url.click_count,
         is_active=url.is_active,
         has_password=url.password is not None,
         created_at=url.created_at,
@@ -81,27 +80,3 @@ async def get_my_urls(
     formatted_urls = [format_url_response(url, request) for url in urls]
     total = len(urls)
     return UrlListResponse(urls=formatted_urls, total=total)
-
-@router.get("/stats/{url_id}", response_model=UrlStats)
-async def get_url_stats(
-    url_id: int,
-    session: SessionDep,
-    current_user: dict = Depends(get_current_user)
-):
-    url = get_url_by_id(session, url_id, None)
-    if not url:
-        raise HTTPException(status_code=404, detail="URL not found")
-    
-    if url.user_id != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Access denied: You can only view statistics for your own URLs")
-    
-    return UrlStats(
-        id=url.id,
-        original_url=url.original_url,
-        short_code=url.short_code,
-        click_count=url.click_count,
-        is_active=url.is_active,
-        has_password=url.password is not None,
-        created_at=url.created_at,
-        expires_at=url.expires_at
-    )

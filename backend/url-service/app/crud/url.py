@@ -94,13 +94,6 @@ def check_and_deactivate_expired_urls(session: Session, user_id: Optional[int] =
     
     return count
 
-def increment_click_count(session: Session, url: Url) -> Url:
-    url.click_count += 1
-    session.add(url)
-    session.commit()
-    session.refresh(url)
-    return url
-
 def get_user_urls(session: Session, user_id: int, skip: int = 0, limit: int = 100) -> list[Url]:
     check_and_deactivate_expired_urls(session, user_id)
     return session.exec(

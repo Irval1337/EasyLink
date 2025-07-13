@@ -65,6 +65,7 @@ services:
       DEBUG: ${DEBUG}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       USERS_SERVICE_URL: ${USERS_SERVICE_URL}
+      ANALYTICS_SERVICE_URL: ${ANALYTICS_SERVICE_URL}
     depends_on:
       url_db:
         condition: service_healthy
@@ -88,9 +89,51 @@ services:
       - easylink_network
     restart: unless-stopped
 
+  analytics_db:
+    image: postgres:15
+    container_name: easylink_analytics_db
+    environment:
+      POSTGRES_USER: ${ANALYTICS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ANALYTICS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ANALYTICS_POSTGRES_DB}
+    ports:
+      - "${ANALYTICS_POSTGRES_PORT}:5432"
+    volumes:
+      - analytics_db_data:/var/lib/postgresql/data
+    networks:
+      - easylink_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_POSTGRES_USER} -d ${ANALYTICS_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  analytics_service:
+    build: ./analytics-service
+    container_name: easylink_analytics_service
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: ${ANALYTICS_DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      USERS_SERVICE_URL: ${USERS_SERVICE_URL}
+      URL_SERVICE_URL: ${URL_SERVICE_URL}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+      users_service:
+        condition: service_started
+      url_service:
+        condition: service_started
+    networks:
+      - easylink_network
+    restart: unless-stopped
+
 volumes:
   users_db_data:
   url_db_data:
+  analytics_db_data:
 
 networks:
   easylink_network:

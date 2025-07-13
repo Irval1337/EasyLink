@@ -1,12 +1,45 @@
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import RedirectResponse
 from datetime import datetime
+import httpx
 
 from app.database import SessionDep
-from app.crud.url import get_url_by_short_code, increment_click_count
-from app.config import MAX_CUSTOM_URL_LENGTH
+from app.crud.url import get_url_by_short_code
+from app.config import MAX_CUSTOM_URL_LENGTH, ANALYTICS_SERVICE_URL
 
 router = APIRouter()
+
+async def track_click_event(request: Request, url_id: int, short_code: str):
+    try:
+        headers = dict(request.headers)
+        payload = {
+            "url_id": url_id,
+            "user_agent": headers.get("user-agent", ""),
+            "referer": headers.get("referer", "")
+        }
+        
+        request_headers = {
+            "Content-Type": "application/json"
+        }
+        
+        auth_header = headers.get("authorization")
+        if auth_header:
+            request_headers["Authorization"] = auth_header
+        
+        real_ip = headers.get("x-real-ip") or headers.get("x-forwarded-for") or request.client.host
+        if real_ip:
+            request_headers["X-Real-IP"] = real_ip
+            request_headers["X-Forwarded-For"] = real_ip
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{ANALYTICS_SERVICE_URL}/events",
+                json=payload,
+                headers=request_headers,
+                timeout=5.0
+            )
+    except Exception:
+        pass
 
 @router.get("/{short_code}")
 async def redirect_url(
@@ -38,6 +71,6 @@ async def redirect_url(
         if password != url.password:
             raise HTTPException(status_code=401, detail="Invalid password")
     
-    increment_click_count(session, url)
+    await track_click_event(request, url.id, short_code)
     
     return RedirectResponse(url=url.original_url, status_code=301)

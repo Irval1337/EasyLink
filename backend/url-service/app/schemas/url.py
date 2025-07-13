@@ -19,7 +19,6 @@ class UrlResponse(BaseModel):
     original_url: str
     short_code: str
     short_url: str
-    click_count: int
     is_active: bool
     has_password: bool
     created_at: datetime
@@ -27,16 +26,6 @@ class UrlResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-class UrlStats(BaseModel):
-    id: int
-    original_url: str
-    short_code: str
-    click_count: int
-    is_active: bool
-    has_password: bool
-    created_at: datetime
-    expires_at: Optional[datetime] = None
 
 class UrlListResponse(BaseModel):
     urls: list[UrlResponse]

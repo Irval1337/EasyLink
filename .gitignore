@@ -221,3 +221,6 @@ backend/**/.env
 *.sqlite
 *.sqlite3
 *.db
+
+.idea/
+.vscode/
