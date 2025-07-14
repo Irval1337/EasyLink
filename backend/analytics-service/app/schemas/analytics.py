@@ -10,6 +10,7 @@ class ClickEventCreate(BaseModel):
 class ClickEventResponse(BaseModel):
     id: int
     url_id: int
+    user_id: Optional[int]
     ip_address: str
     user_agent: str
     referer: Optional[str]

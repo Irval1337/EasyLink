@@ -66,6 +66,7 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       USERS_SERVICE_URL: ${USERS_SERVICE_URL}
       ANALYTICS_SERVICE_URL: ${ANALYTICS_SERVICE_URL}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
     depends_on:
       url_db:
         condition: service_healthy

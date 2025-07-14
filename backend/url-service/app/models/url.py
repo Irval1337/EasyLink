@@ -8,7 +8,7 @@ class Url(SQLModel, table=True):
     id: int = Field(primary_key=True)
     original_url: str = Field(index=True)
     short_code: str = Field(unique=True, index=True)
-    user_id: int = Field(index=True)
+    user_id: int = Field(index=True, default=-1)
     is_active: bool = Field(default=True)
     password: Optional[str] = Field(default=None)
     remaining_clicks: Optional[int] = Field(default=None)

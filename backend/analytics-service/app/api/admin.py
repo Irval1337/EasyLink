@@ -14,6 +14,7 @@ admin_router = APIRouter()
 def build_filtered_query(
     session: Session,
     url_id: Optional[int] = None,
+    user_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ):
@@ -21,6 +22,8 @@ def build_filtered_query(
     
     if url_id:
         base_query = base_query.where(ClickEvent.url_id == url_id)
+    if user_id is not None:
+        base_query = base_query.where(ClickEvent.user_id == user_id)
     
     start_dt = None
     if start_date:
@@ -64,15 +67,15 @@ async def admin_detailed_stats(
     session: SessionDep,
     admin_verified: bool = Depends(verify_admin_token),
     url_id: Optional[int] = None,
+    user_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     selected_date: Optional[str] = None
 ):
     now = datetime.utcnow()
-    base_query, start_dt, end_dt = build_filtered_query(session, url_id, start_date, end_date)
+    base_query, start_dt, end_dt = build_filtered_query(session, url_id, user_id, start_date, end_date)
     
     events = session.exec(base_query).all()
-    
     stats = calculate_stats(
         session=session,
         events=events,
@@ -87,6 +90,7 @@ async def admin_detailed_stats(
     stats.update({
         "filter": {
             "url_id": url_id,
+            "user_id": user_id,
             "start_date": start_date,
             "end_date": end_date,
             "selected_date": selected_date
@@ -94,7 +98,6 @@ async def admin_detailed_stats(
         "generated_at": now.isoformat(),
         "system_status": "admin_detailed_mode"
     })
-    
     return stats
 
 @admin_router.get("/export", tags=["admin"])
@@ -104,6 +107,7 @@ async def admin_export_stats(
     admin_verified: bool = Depends(verify_admin_token),
     format: str = "json",
     url_id: Optional[int] = None,
+    user_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     selected_date: Optional[str] = None
@@ -111,7 +115,7 @@ async def admin_export_stats(
     if format not in ["json", "csv"]:
         raise HTTPException(status_code=400, detail="Format must be 'json' or 'csv'")
 
-    base_query, start_dt, end_dt = build_filtered_query(session, url_id, start_date, end_date)
+    base_query, start_dt, end_dt = build_filtered_query(session, url_id, user_id, start_date, end_date)
     
     events = session.exec(base_query).all()
     
@@ -140,15 +144,33 @@ async def admin_get_raw_clicks(
     session: SessionDep,
     admin_verified: bool = Depends(verify_admin_token),
     url_id: Optional[int] = None,
+    user_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
 ):
-    base_query, _, _ = build_filtered_query(session, url_id, start_date, end_date)
+    base_query, _, _ = build_filtered_query(session, url_id, user_id, start_date, end_date)
     
-    count_query = select(func.count()).select_from(base_query.subquery())
-    total_count = session.exec(count_query).scalar_one()
+    count_query = select(func.count(ClickEvent.id))
+    if url_id:
+        count_query = count_query.where(ClickEvent.url_id == url_id)
+    if user_id is not None:
+        count_query = count_query.where(ClickEvent.user_id == user_id)
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            count_query = count_query.where(ClickEvent.clicked_at >= start_dt)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            count_query = count_query.where(ClickEvent.clicked_at <= end_dt)
+        except ValueError:
+            pass
+    
+    total_count = session.exec(count_query).first() or 0
     
     query = base_query.order_by(ClickEvent.clicked_at.desc()).limit(limit).offset(offset)
     events = session.exec(query).all()
@@ -157,6 +179,7 @@ async def admin_get_raw_clicks(
         {
             "id": event.id,
             "url_id": event.url_id,
+            "user_id": event.user_id,
             "ip_address": event.ip_address,
             "user_agent": event.user_agent,
             "referer": event.referer,
@@ -169,12 +192,17 @@ async def admin_get_raw_clicks(
         }
         for event in events
     ]
-    
     return {
         "clicks": clicks,
         "total": total_count,
         "limit": limit,
-        "offset": offset
+        "offset": offset,
+        "filters": {
+            "url_id": url_id,
+            "user_id": user_id,
+            "start_date": start_date,
+            "end_date": end_date
+        }
     }
 
 @admin_router.get("/clicks/export", tags=["admin"])
@@ -184,14 +212,14 @@ async def admin_export_raw_clicks(
     admin_verified: bool = Depends(verify_admin_token),
     format: str = "json",
     url_id: Optional[int] = None,
+    user_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ):
     if format not in ["json", "csv"]:
         raise HTTPException(status_code=400, detail="Format must be 'json' or 'csv'")
     
-    base_query, _, _ = build_filtered_query(session, url_id, start_date, end_date)
-    
+    base_query, _, _ = build_filtered_query(session, url_id, user_id, start_date, end_date)
     query = base_query.order_by(ClickEvent.clicked_at.desc())
     events = session.exec(query).all()
     

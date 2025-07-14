@@ -2,7 +2,7 @@ import httpx
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-from app.config import USERS_SERVICE_URL
+from app.config import USERS_SERVICE_URL, ADMIN_TOKEN
 
 security = HTTPBearer(auto_error=False)
 
@@ -34,3 +34,18 @@ async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = 
     if not credentials:
         return None
     return await verify_token(credentials)
+
+async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+    
+    if credentials.credentials != ADMIN_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    return True

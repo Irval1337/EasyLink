@@ -20,3 +20,5 @@ RESERVED_SHORT_CODES = {
     "me", "shorten", "index.html", "verify-token", "logout", "events",
     "links", "dashboard", "export"
 }
+
+ADMIN_TOKEN = config("ADMIN_TOKEN", "admin_secret_token_123")

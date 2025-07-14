@@ -21,6 +21,7 @@ class UrlResponse(BaseModel):
     original_url: str
     short_code: str
     short_url: str
+    user_id: Optional[int] = None
     is_active: bool
     has_password: bool
     created_at: datetime

@@ -7,6 +7,7 @@ class ClickEvent(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     url_id: int = Field(index=True)
+    user_id: Optional[int] = Field(default=None, index=True)
     ip_address: str
     user_agent: str
     referer: Optional[str] = Field(default=None)

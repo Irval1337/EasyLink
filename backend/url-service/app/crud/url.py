@@ -39,6 +39,9 @@ def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
     return url
 
 def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int) -> Optional[Url]:
+    if user_id == -1:
+        return None
+        
     url = session.exec(select(Url).where(Url.id == url_id, Url.user_id == user_id)).first()
     if not url:
         return None
@@ -66,6 +69,9 @@ def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int)
     return url
 
 def deactivate_url(session: Session, url_id: int, user_id: int) -> Optional[Url]:
+    if user_id == -1:
+        return None
+        
     url = session.exec(select(Url).where(Url.id == url_id, Url.user_id == user_id)).first()
     if not url:
         return None
@@ -145,6 +151,9 @@ def generate_qr_code(url: str, size: int = 10, border: int = 4) -> str:
     return f"data:image/png;base64,{img_str}"
 
 def get_url_with_qr_code(session: Session, url_id: int, user_id: int, base_url: str = "http://localhost:8000") -> Optional[dict]:
+    if user_id == -1:
+        return None
+        
     url = session.exec(select(Url).where(Url.id == url_id, Url.user_id == user_id)).first()
     if not url:
         return None
@@ -156,11 +165,3 @@ def get_url_with_qr_code(session: Session, url_id: int, user_id: int, base_url: 
         "short_url": short_url,
         "qr_code": qr_code
     }
-
-def get_qr_code_for_short_code(session: Session, short_code: str, base_url: str = "http://localhost:8000") -> Optional[str]:
-    url = session.exec(select(Url).where(Url.short_code == short_code)).first()
-    if not url:
-        return None
-    
-    short_url = f"{base_url}/{short_code}"
-    return generate_qr_code(short_url)

@@ -27,8 +27,22 @@ async def track_click(
     user_agent_info = parse_user_agent(click_data.user_agent)
     location_info = await get_location_info(real_ip)
     
+    user_id = None
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{URL_SERVICE_URL}/admin/urls/{click_data.url_id}/user-id",
+                timeout=5.0
+            )
+            if response.status_code == 200:
+                url_data = response.json()
+                user_id = url_data.get("user_id")
+    except Exception:
+        pass
+    
     event_data = {
         "url_id": click_data.url_id,
+        "user_id": user_id,
         "ip_address": real_ip,
         "user_agent": click_data.user_agent,
         "referer": click_data.referer,
