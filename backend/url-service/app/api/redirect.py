@@ -4,7 +4,7 @@ from datetime import datetime
 import httpx
 
 from app.database import SessionDep
-from app.crud.url import get_url_by_short_code
+from app.crud.url import get_url_by_short_code, decrement_clicks_count
 from app.config import MAX_CUSTOM_URL_LENGTH, ANALYTICS_SERVICE_URL
 
 router = APIRouter()
@@ -62,6 +62,12 @@ async def redirect_url(
         session.commit()
         raise HTTPException(status_code=410, detail="URL has expired")
     
+    if url.remaining_clicks is not None and url.remaining_clicks <= 0:
+        url.is_active = False
+        session.add(url)
+        session.commit()
+        raise HTTPException(status_code=410, detail="URL has reached maximum clicks limit")
+    
     if url.password is not None:
         if password is None:
             raise HTTPException(
@@ -71,6 +77,7 @@ async def redirect_url(
         if password != url.password:
             raise HTTPException(status_code=401, detail="Invalid password")
     
+    decrement_clicks_count(session, url)
+    session.refresh(url)
     await track_click_event(request, url.id, short_code)
-    
     return RedirectResponse(url=url.original_url, status_code=301)

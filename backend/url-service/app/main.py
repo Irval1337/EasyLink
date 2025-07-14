@@ -6,7 +6,7 @@ from app.api import urls, redirect, admin
 
 app = FastAPI(
     title="EasyLink URL Shortener",
-    version="1.0.3",
+    version="1.0.4",
     debug=DEBUG
 )
 

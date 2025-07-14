@@ -7,12 +7,14 @@ class UrlCreate(BaseModel):
     custom_code: Optional[str] = None
     expires_at: Optional[datetime] = None
     password: Optional[str] = None
+    remaining_clicks: Optional[int] = None
 
 class UrlUpdate(BaseModel):
     original_url: Optional[HttpUrl] = None
     password: Optional[str] = None
     expires_at: Optional[datetime] = None
     is_active: Optional[bool] = None
+    remaining_clicks: Optional[int] = None
 
 class UrlResponse(BaseModel):
     id: int
@@ -23,6 +25,7 @@ class UrlResponse(BaseModel):
     has_password: bool
     created_at: datetime
     expires_at: Optional[datetime] = None
+    remaining_clicks: Optional[int] = None
 
     class Config:
         from_attributes = True

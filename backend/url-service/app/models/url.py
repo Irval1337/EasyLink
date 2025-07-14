@@ -11,5 +11,6 @@ class Url(SQLModel, table=True):
     user_id: int = Field(index=True)
     is_active: bool = Field(default=True)
     password: Optional[str] = Field(default=None)
+    remaining_clicks: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: Optional[datetime] = Field(default=None)
