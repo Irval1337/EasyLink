@@ -21,4 +21,4 @@ RESERVED_SHORT_CODES = {
     "links", "dashboard", "export"
 }
 
-ADMIN_TOKEN = config("ADMIN_TOKEN", "admin_secret_token_123")
+ADMIN_TOKEN = config("ADMIN_TOKEN", default="admin_secret_token_12345")

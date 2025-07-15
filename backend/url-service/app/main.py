@@ -6,7 +6,7 @@ from app.api import url, redirect, admin
 
 app = FastAPI(
     title="EasyLink URL Shortener",
-    version="1.0.4",
+    version="1.0.5",
     debug=DEBUG
 )
 
@@ -30,6 +30,6 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-app.include_router(urls.router, tags=["URLs"])
+app.include_router(url.router, tags=["URLs"])
 app.include_router(redirect.router, tags=["Redirect"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])

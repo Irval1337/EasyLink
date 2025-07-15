@@ -6,6 +6,8 @@ from app.core.users import verify_token
 from app.crud.users import get_user_by_id_optional
 from app.models.user import User
 
+from app.config import ADMIN_TOKEN
+
 security = HTTPBearer()
 
 def get_current_user(
@@ -37,3 +39,19 @@ def get_current_user(
         )
     
     return user
+
+async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+    
+    if credentials.credentials != ADMIN_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    return True
+

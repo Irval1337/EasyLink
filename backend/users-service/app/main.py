@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.users import router
+from app.api.admin import router as admin_router
 from app.database import init_db
 from app.config import ALLOWED_ORIGINS
 
@@ -22,6 +23,7 @@ async def startup_event():
     init_db()
 
 app.include_router(router, tags=["users"])
+app.include_router(admin_router, tags=["admin"])
 
 @app.get("/")
 def root():

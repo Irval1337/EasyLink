@@ -10,6 +10,6 @@ URL_SERVICE_URL = config("URL_SERVICE_URL", default="http://easylink_url_service
 
 MAX_EXPORT_RECORDS = config("MAX_EXPORT_RECORDS", default=100000, cast=int)
 
-ADMIN_TOKEN = config("ADMIN_TOKEN", default="admin_secret_token_123")
+ADMIN_TOKEN = config("ADMIN_TOKEN", default="admin_secret_token_12345")
 
 ALLOWED_ORIGINS = config("ALLOWED_ORIGINS", default="http://localhost:3000,http://127.0.0.1:3000").split(",")

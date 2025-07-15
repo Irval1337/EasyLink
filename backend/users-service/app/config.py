@@ -8,3 +8,5 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 DEBUG = config("DEBUG", default=True, cast=bool)
 ALLOWED_ORIGINS = config("ALLOWED_ORIGINS", default="http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000").split(",")
+
+ADMIN_TOKEN = config("ADMIN_TOKEN", default="admin_secret_token_12345")

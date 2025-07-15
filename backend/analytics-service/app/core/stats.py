@@ -2,6 +2,10 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from sqlmodel import select, func, Session
 from app.models.analytics import ClickEvent
+from app.config import URL_SERVICE_URL, USERS_SERVICE_URL, ADMIN_TOKEN
+import httpx
+import sys
+from urllib.parse import urlparse
 
 def calculate_stats(
     session: Session,
@@ -175,4 +179,72 @@ def calculate_stats(
             "top_ips": dict(sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:20])
         })
     
+    return result
+
+def calculate_public_stats(session: Session) -> Dict[str, Any]:
+    month_ago = datetime.utcnow() - timedelta(days=30)
+    try:
+        active_users_query = select(func.count(func.distinct(ClickEvent.user_id))).where(
+            ClickEvent.clicked_at >= month_ago,
+            ClickEvent.user_id.isnot(None)
+        )
+        active_users_month = session.exec(active_users_query).first() or 0
+    except Exception:
+        active_users_month = 0
+    
+    return {
+        "total_urls": 0,
+        "urls_today": 0,
+        "total_users": 0,
+        "active_users_month": active_users_month,
+        "popular_domains": []
+    }
+
+async def calculate_public_stats_async(session: Session) -> Dict[str, Any]:
+    result = {
+        "links": {
+            "total": 0,
+            "today": 0,
+        },
+        "users": {
+            "total": 0,
+            "active_month": 0,
+        },
+        "popular_domains": {
+            "data": [],
+        },
+        "generated_at": datetime.utcnow().isoformat()
+    }
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            f"{URL_SERVICE_URL}/admin/urls/stats",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"}
+        )
+        if response.status_code == 200:
+            data = response.json()
+            result["links"].update({
+                "total": data.get("total", 0),
+                "today": data.get("today", 0)
+            })
+        
+        response = await client.get(
+            f"{USERS_SERVICE_URL}/admin/users/stats",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"}
+        )
+        if response.status_code == 200:
+            data = response.json()
+            result["users"].update({
+                "total": data.get("total", 0),
+                "active_month": data.get("active_month", 0)
+            })
+        
+        response = await client.get(
+            f"{URL_SERVICE_URL}/admin/urls/popular-domains",
+            headers={"Authorization": f"Bearer {ADMIN_TOKEN}"}
+        )
+        if response.status_code == 200:
+            data = response.json()
+            result["popular_domains"]["data"] = data.get("domains", [])
+            
     return result

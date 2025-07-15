@@ -8,7 +8,7 @@ from app.config import ALLOWED_ORIGINS
 
 app = FastAPI(
     title="Analytics Service",
-    version="1.0.0"
+    version="1.0.1"
 )
 
 app.add_middleware(

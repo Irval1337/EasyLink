@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import httpx
 import logging
@@ -14,6 +14,55 @@ from app.config import ADMIN_TOKEN, ANALYTICS_SERVICE_URL
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+@router.get("/urls/stats")
+async def get_urls_stats_summary(
+    session: SessionDep,
+    admin_verified: bool = Depends(verify_admin_token)
+):
+    total_urls = session.exec(select(func.count(Url.id))).first() or 0
+    today = datetime.utcnow().date()
+    today_urls_query = select(func.count(Url.id)).where(
+        func.date(Url.created_at) == today
+    )
+    today_urls = session.exec(today_urls_query).first() or 0
+    active_urls_query = select(func.count(Url.id)).where(
+        Url.is_active == True
+    )
+    active_urls = session.exec(active_urls_query).first() or 0
+    
+    return {
+        "total": total_urls,
+        "today": today_urls,
+        "active": active_urls
+    }
+
+@router.get("/urls/popular-domains")
+async def get_popular_domains(
+    session: SessionDep,
+    admin_verified: bool = Depends(verify_admin_token),
+    limit: int = Query(10, ge=1, le=50)
+):
+    urls = session.exec(select(Url.original_url)).all()
+    domain_counts = {}
+    for original_url in urls:
+        try:
+            parsed = urlparse(original_url)
+            domain = parsed.netloc.lower()
+            if domain:
+                if domain.startswith('www.'):
+                    domain = domain[4:]
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
+        except Exception:
+            continue
+    popular_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+    
+    return {
+        "domains": [
+            {"domain": domain, "count": count}
+            for domain, count in popular_domains
+        ]
+    }
 
 def format_url_response(url, request: Request) -> UrlResponse:
     base_url = f"{request.url.scheme}://{request.url.netloc}"
@@ -40,10 +89,8 @@ async def get_clicks_count_for_url(url_id: int) -> int:
                 data = response.json()
                 return data.get("total_clicks", 0)
             else:
-                logger.warning(f"Failed to get clicks for URL {url_id}: {response.status_code}")
                 return 0
     except Exception as e:
-        logger.error(f"Error getting clicks for URL {url_id}: {str(e)}")
         return 0
 
 @router.post("/cleanup-expired")

@@ -2,12 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from typing import Optional
 from datetime import datetime
 import httpx
+import sys
 
 from app.database import SessionDep
 from app.schemas.analytics import ClickEventCreate, ClickEventResponse
 from app.crud.analytics import create_click_event
 from app.core.analytics import parse_user_agent, get_location_info, extract_real_ip
-from app.core.stats import calculate_stats
+from app.core.stats import calculate_stats, calculate_public_stats_async
 from app.core.export import export_stats_to_json, export_stats_to_csv, export_clicks_to_json, export_clicks_to_csv
 from app.api.dependencies import get_current_user, get_current_user_optional
 from app.config import URL_SERVICE_URL, ADMIN_TOKEN
@@ -457,3 +458,7 @@ async def get_my_url_clicks_count(
         "url_id": url_id,
         "total_clicks": total_clicks or 0
     }
+
+@router.get("/public/stats")
+async def get_public_stats(session: SessionDep):
+    return await calculate_public_stats_async(session)
