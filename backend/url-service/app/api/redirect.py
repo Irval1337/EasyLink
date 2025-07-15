@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Path, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from datetime import datetime
 import httpx
 
@@ -41,6 +41,16 @@ async def track_click_event(request: Request, url_id: int, short_code: str):
     except Exception:
         pass
 
+def is_social_media_bot(user_agent: str) -> bool:
+    social_bots = [
+        'facebookexternalhit', 'twitterbot', 'telegrambot', 'whatsapp',
+        'skypebot', 'discordbot', 'slackbot', 'linkedinbot', 'vkshare',
+        'applebot', 'googlebot', 'bingbot', 'yandexbot', 'viberbot',
+        'facebot', 'ia_archiver', 'developers.google.com/+/web/snippet'
+    ]
+    user_agent_lower = user_agent.lower()
+    return any(bot in user_agent_lower for bot in social_bots)
+
 @router.get("/{short_code}")
 async def redirect_url(
     request: Request,
@@ -76,6 +86,56 @@ async def redirect_url(
             )
         if password != url.password:
             raise HTTPException(status_code=401, detail="Invalid password")
+    
+    user_agent = request.headers.get("user-agent", "")
+    if is_social_media_bot(user_agent):
+        base_url = f"{request.url.scheme}://{request.url.netloc}"
+        short_url = f"{base_url}/{short_code}"
+        
+        if url.hide_thumbnail:
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>EasyLink - Сервис сокращения ссылок</title>
+                <meta property="og:title" content="EasyLink - Сервис сокращения ссылок">
+                <meta property="og:description" content="Это сокращенный URL-адрес, созданный с помощью EasyLink. Нажмите, чтобы перейти по ссылке.">
+                <meta property="og:image" content="{base_url}/static/easylink-preview.png">
+                <meta property="og:url" content="{short_url}">
+                <meta property="og:type" content="website">
+                <meta property="og:site_name" content="EasyLink">
+                <meta name="twitter:card" content="summary_large_image">
+                <meta name="twitter:title" content="EasyLink - Сервис сокращения ссылок">
+                <meta name="twitter:description" content="Это сокращенный URL-адрес, созданный с помощью EasyLink. Нажмите, чтобы перейти по ссылке.">
+                <meta name="twitter:image" content="{base_url}/static/easylink-preview.png">
+                <meta http-equiv="refresh" content="0; url={url.original_url}">
+            </head>
+            <body>
+                <p>Redirecting to destination...</p>
+                <p>Если вы не перенаправлены автоматически, <a href="{url.original_url}">нажмите здесь</a>.</p>
+            </body>
+            </html>
+            """
+        else:
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Переадресация...</title>
+                <meta http-equiv="refresh" content="0; url={url.original_url}">
+                <link rel="canonical" href="{url.original_url}">
+            </head>
+            <body>
+                <p>Переадресация...</p>
+                <p>Если вы не перенаправлены автоматически, <a href="{url.original_url}">нажмите здесь</a>.</p>
+            </body>
+            </html>
+            """
+        
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html_content)
     
     decrement_clicks_count(session, url)
     session.refresh(url)

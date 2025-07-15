@@ -4,12 +4,19 @@ from datetime import timedelta
 from pydantic import ValidationError
 
 from app.database import SessionDep
-from app.schemas.users import UserCreate, UserLogin, UserResponse, Token, UserUpdate
+from app.schemas.users import (
+    UserCreate, UserLogin, UserResponse, Token, UserUpdate,
+    EmailActivationRequest, ResendActivationRequest, EmailActivationResponse
+)
 from app.crud.users import (
     create_user, authenticate_user, update_user, logout_user,
-    UserAlreadyExistsError, InvalidCredentialsError, InvalidCurrentPasswordError
+    UserAlreadyExistsError, InvalidCredentialsError, InvalidCurrentPasswordError,
+    EmailNotVerifiedError, get_user_by_email, UserNotFoundError,
+    activate_user_email, resend_activation_email, EmailActivationCooldownError
 )
 from app.core.users import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.email import email_service
+from app.config import SECRET_KEY
 from app.api.dependencies import get_current_user
 from app.models.user import User
 
@@ -38,6 +45,12 @@ def login(user_credentials: UserLogin, session: SessionDep):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except EmailNotVerifiedError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please verify your email address before logging in",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -86,4 +99,53 @@ def logout(
 
 @router.post("/verify-token")
 def verify_user_token(current_user: User = Depends(get_current_user)):
-    return {"user_id": current_user.id, "valid": True}
+    return {"message": "Token is valid", "user_id": current_user.id}
+
+@router.get("/activate-email", response_model=EmailActivationResponse)
+def activate_email(token: str, session: SessionDep):
+    email = email_service.verify_email_activation_token(token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired activation token"
+        )
+    
+    try:
+        user = activate_user_email(session, email)
+        return EmailActivationResponse(
+            message="Email successfully activated",
+            success=True
+        )
+    except UserNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+@router.post("/resend-activation", response_model=EmailActivationResponse)
+def resend_activation_email_endpoint(request: ResendActivationRequest, session: SessionDep):
+    try:
+        user = get_user_by_email(session, request.email)
+        if user.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is already verified"
+            )
+        
+        if resend_activation_email(session, user):
+            return EmailActivationResponse(
+                message="Activation email sent successfully"
+            )
+        return EmailActivationResponse(
+                message="An unexpected error occurred while sending the email. Try again later."
+            )
+    except UserNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    except EmailActivationCooldownError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {e.remaining_minutes} minutes before requesting another activation email"
+        )

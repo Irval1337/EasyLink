@@ -27,7 +27,8 @@ def format_url_response(url, request: Request) -> UrlResponse:
         has_password=url.password is not None,
         created_at=url.created_at,
         expires_at=url.expires_at,
-        remaining_clicks=url.remaining_clicks
+        remaining_clicks=url.remaining_clicks,
+        hide_thumbnail=url.hide_thumbnail
     )
 
 @router.post("/shorten", response_model=UrlResponse)

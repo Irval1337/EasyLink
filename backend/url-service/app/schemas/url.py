@@ -8,6 +8,7 @@ class UrlCreate(BaseModel):
     expires_at: Optional[datetime] = None
     password: Optional[str] = None
     remaining_clicks: Optional[int] = None
+    hide_thumbnail: bool = False
 
 class UrlUpdate(BaseModel):
     original_url: Optional[HttpUrl] = None
@@ -15,6 +16,7 @@ class UrlUpdate(BaseModel):
     expires_at: Optional[datetime] = None
     is_active: Optional[bool] = None
     remaining_clicks: Optional[int] = None
+    hide_thumbnail: Optional[bool] = None
 
 class UrlResponse(BaseModel):
     id: int
@@ -27,6 +29,7 @@ class UrlResponse(BaseModel):
     created_at: datetime
     expires_at: Optional[datetime] = None
     remaining_clicks: Optional[int] = None
+    hide_thumbnail: bool
 
     class Config:
         from_attributes = True

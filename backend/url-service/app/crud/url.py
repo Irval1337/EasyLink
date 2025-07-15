@@ -30,7 +30,8 @@ def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
         user_id=user_id,
         expires_at=url_data.expires_at,
         password=url_data.password,
-        remaining_clicks=url_data.remaining_clicks
+        remaining_clicks=url_data.remaining_clicks,
+        hide_thumbnail=url_data.hide_thumbnail
     )
     
     session.add(url)
@@ -62,6 +63,9 @@ def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int)
     
     if url_data.remaining_clicks:
         url.remaining_clicks = url_data.remaining_clicks
+    
+    if url_data.hide_thumbnail is not None:
+        url.hide_thumbnail = url_data.hide_thumbnail
     
     session.add(url)
     session.commit()

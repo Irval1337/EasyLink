@@ -3,7 +3,8 @@ from fastapi import HTTPException, status
 from app.models.user import User
 from app.schemas.users import UserCreate, UserUpdate
 from app.core.users import get_password_hash, verify_password
-from datetime import datetime
+from app.core.email import email_service
+from datetime import datetime, timedelta
 import re
 
 class UserAlreadyExistsError(Exception):
@@ -25,6 +26,15 @@ class InvalidCurrentPasswordError(Exception):
     def __init__(self):
         super().__init__("Current password is incorrect")
 
+class EmailNotVerifiedError(Exception):
+    def __init__(self):
+        super().__init__("Email is not verified")
+
+class EmailActivationCooldownError(Exception):
+    def __init__(self, remaining_minutes: int):
+        self.remaining_minutes = remaining_minutes
+        super().__init__(f"Please wait {remaining_minutes} minutes before requesting another activation email")
+
 def is_email(identifier: str) -> bool:
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(email_pattern, identifier))
@@ -43,11 +53,20 @@ def create_user(session: Session, user: UserCreate) -> User:
         email=user.email,
         username=user.username,
         hashed_password=hashed_password,
+        email_verified=False,
         token_version=1
     )
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+    success = email_service.send_activation_email(db_user.email, db_user.username)
+    
+    if success:
+        db_user.last_activation_email_sent = datetime.utcnow()
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
+    
     return db_user
 
 def update_user(session: Session, current_user: User, user_update: UserUpdate) -> User:
@@ -55,13 +74,16 @@ def update_user(session: Session, current_user: User, user_update: UserUpdate) -
         raise InvalidCurrentPasswordError()
     
     invalidate_tokens = False
+    send_activation_email = False
     
     if user_update.email is not None:
         existing_user = session.exec(select(User).where(User.email == user_update.email)).first()
         if existing_user and existing_user.id != current_user.id:
             raise UserAlreadyExistsError("email", user_update.email)
         current_user.email = user_update.email
+        current_user.email_verified = False
         invalidate_tokens = True
+        send_activation_email = True
     
     if user_update.username is not None:
         existing_user = session.exec(select(User).where(User.username == user_update.username)).first()
@@ -80,6 +102,9 @@ def update_user(session: Session, current_user: User, user_update: UserUpdate) -
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
+    
+    if send_activation_email:
+        email_service.send_activation_email(current_user.email, current_user.username)
     return current_user
 
 def logout_user(session: Session, user: User) -> None:
@@ -116,6 +141,8 @@ def authenticate_user(session: Session, identifier: str, password: str) -> User:
     
     if not verify_password(password, user.hashed_password):
         raise InvalidCredentialsError()
+    if not user.email_verified:
+        raise EmailNotVerifiedError()
     
     return user
 
@@ -127,3 +154,45 @@ def get_user_by_username_optional(session: Session, username: str) -> User | Non
 
 def get_user_by_id_optional(session: Session, user_id: int) -> User | None:
     return session.exec(select(User).where(User.id == user_id)).first()
+
+def activate_user_email(session: Session, email: str) -> User:
+    user = get_user_by_email(session, email)
+    user.email_verified = True
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+def can_resend_activation_email(session: Session, user: User) -> bool:
+    from app.config import EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES
+    if user.last_activation_email_sent is None:
+        return True
+    
+    cooldown_time = user.last_activation_email_sent + timedelta(minutes=EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES)
+    return datetime.utcnow() > cooldown_time
+
+def get_activation_email_cooldown_remaining(session: Session, user: User) -> int:
+    from app.config import EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES
+    if user.last_activation_email_sent is None:
+        return 0
+    
+    cooldown_time = user.last_activation_email_sent + timedelta(minutes=EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES)
+    remaining = cooldown_time - datetime.utcnow()
+    if remaining.total_seconds() <= 0:
+        return 0
+    
+    return int(remaining.total_seconds() / 60) + 1
+
+def resend_activation_email(session: Session, user: User) -> bool:
+    if not can_resend_activation_email(session, user):
+        remaining = get_activation_email_cooldown_remaining(session, user)
+        raise EmailActivationCooldownError(remaining)
+    
+    success = email_service.send_activation_email(user.email, user.username)
+    if not success:
+        return False
+    user.last_activation_email_sent = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    return True

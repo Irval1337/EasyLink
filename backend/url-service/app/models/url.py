@@ -12,5 +12,6 @@ class Url(SQLModel, table=True):
     is_active: bool = Field(default=True)
     password: Optional[str] = Field(default=None)
     remaining_clicks: Optional[int] = Field(default=None)
+    hide_thumbnail: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: Optional[datetime] = Field(default=None)

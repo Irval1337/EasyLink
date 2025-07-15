@@ -73,6 +73,7 @@ class UserResponse(BaseModel):
     email: str
     username: str
     is_active: bool
+    email_verified: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -86,3 +87,12 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[int] = None
     token_version: Optional[int] = None
+
+class EmailActivationRequest(BaseModel):
+    token: str
+
+class ResendActivationRequest(BaseModel):
+    email: str
+
+class EmailActivationResponse(BaseModel):
+    message: str
