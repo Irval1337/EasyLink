@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import ALLOWED_ORIGINS, DEBUG, MAX_CUSTOM_URL_LENGTH, SHORT_CODE_LENGTH
 from app.database import init_db
-from app.api import urls, redirect, admin
+from app.api import url, redirect, admin
 
 app = FastAPI(
     title="EasyLink URL Shortener",

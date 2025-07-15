@@ -33,7 +33,10 @@ async def get_current_user(user_data: dict = Depends(verify_token)) -> dict:
 async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[dict]:
     if not credentials:
         return None
-    return await verify_token(credentials)
+    user_data = await verify_token(credentials)
+    if user_data:
+        return {"id": user_data["user_id"]}
+    return None
 
 async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
     if not credentials:

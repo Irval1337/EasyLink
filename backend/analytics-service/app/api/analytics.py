@@ -10,7 +10,7 @@ from app.core.analytics import parse_user_agent, get_location_info, extract_real
 from app.core.stats import calculate_stats
 from app.core.export import export_stats_to_json, export_stats_to_csv, export_clicks_to_json, export_clicks_to_csv
 from app.api.dependencies import get_current_user, get_current_user_optional
-from app.config import URL_SERVICE_URL
+from app.config import URL_SERVICE_URL, ADMIN_TOKEN
 
 router = APIRouter()
 
@@ -32,6 +32,7 @@ async def track_click(
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{URL_SERVICE_URL}/admin/urls/{click_data.url_id}/user-id",
+                headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
                 timeout=5.0
             )
             if response.status_code == 200:
@@ -73,7 +74,7 @@ async def get_analytics(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{URL_SERVICE_URL}/my?skip=0&limit=1000000000",
+                f"{URL_SERVICE_URL}/my?skip=0&limit=1000",
                 headers={"Authorization": f"Bearer {token}"}
             )
             
@@ -417,3 +418,42 @@ async def export_raw_clicks(
         response.media_type = "text/csv"
         response.headers["Content-Disposition"] = "attachment; filename=clicks.csv"
         return export_clicks_to_csv(events)
+
+@router.get("/my/clicks/url/{url_id}")
+async def get_my_url_clicks_count(
+    url_id: int,
+    session: SessionDep,
+    user_data: dict = Depends(get_current_user)
+):
+    user_id = user_data.get("id")
+    token = user_data.get("token")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{URL_SERVICE_URL}/my?skip=0&limit=1000",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="Failed to get user URLs")
+            
+            user_urls_response = response.json()
+            user_urls = user_urls_response.get("urls", [])
+            user_url_ids = [url["id"] for url in user_urls]
+            
+            if url_id not in user_url_ids:
+                raise HTTPException(status_code=404, detail="URL not found or access denied")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to verify URL ownership")
+    from sqlmodel import select, func
+    from app.models.analytics import ClickEvent
+    
+    count_query = select(func.count(ClickEvent.id)).where(ClickEvent.url_id == url_id)
+    total_clicks = session.exec(count_query).first()
+    return {
+        "url_id": url_id,
+        "total_clicks": total_clicks or 0
+    }

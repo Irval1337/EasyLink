@@ -34,3 +34,6 @@ class UrlResponse(BaseModel):
 class UrlListResponse(BaseModel):
     urls: list[UrlResponse]
     total: int
+    skip: Optional[int] = None
+    limit: Optional[int] = None
+    filters: Optional[dict] = None

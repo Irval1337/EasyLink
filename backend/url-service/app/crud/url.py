@@ -118,15 +118,54 @@ def check_and_deactivate_expired_urls(session: Session, user_id: Optional[int] =
     
     return count
 
-def get_user_urls(session: Session, user_id: int, skip: int = 0, limit: int = 100) -> list[Url]:
+def get_user_urls(
+    session: Session, 
+    user_id: int, 
+    skip: int = 0, 
+    limit: int = 100,
+    is_active: Optional[bool] = None,
+    created_from: Optional[datetime] = None,
+    created_to: Optional[datetime] = None,
+    domain: Optional[str] = None
+) -> list[Url]:
     check_and_deactivate_expired_urls(session, user_id)
+    
+    query = select(Url).where(Url.user_id == user_id)
+    
+    if is_active is not None:
+        query = query.where(Url.is_active == is_active)
+    if created_from:
+        query = query.where(Url.created_at >= created_from)
+    if created_to:
+        query = query.where(Url.created_at <= created_to)
+    if domain:
+        query = query.where(Url.original_url.contains(f"://{domain}"))
+    
     return session.exec(
-        select(Url)
-        .where(Url.user_id == user_id)
-        .offset(skip)
-        .limit(limit)
-        .order_by(Url.created_at.desc())
+        query.offset(skip).limit(limit).order_by(Url.created_at.desc())
     ).all()
+
+def count_user_urls(
+    session: Session, 
+    user_id: int,
+    is_active: Optional[bool] = None,
+    created_from: Optional[datetime] = None,
+    created_to: Optional[datetime] = None,
+    domain: Optional[str] = None
+) -> int:
+    from sqlmodel import func
+    
+    query = select(func.count(Url.id)).where(Url.user_id == user_id)
+    if is_active is not None:
+        query = query.where(Url.is_active == is_active)
+    if created_from:
+        query = query.where(Url.created_at >= created_from)
+    if created_to:
+        query = query.where(Url.created_at <= created_to)
+    if domain:
+        query = query.where(Url.original_url.contains(f"://{domain}"))
+    
+    return session.exec(query).first() or 0
 
 def get_url_by_id(session: Session, url_id: int, user_id: Optional[int] = None) -> Optional[Url]:
     query = select(Url).where(Url.id == url_id)
@@ -165,3 +204,20 @@ def get_url_with_qr_code(session: Session, url_id: int, user_id: int, base_url: 
         "short_url": short_url,
         "qr_code": qr_code
     }
+
+async def get_clicks_count_for_user_url(url_id: int, user_id: int, token: str) -> int:
+    try:
+        import httpx
+        from app.config import ANALYTICS_SERVICE_URL
+        
+        async with httpx.AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {token}"}
+            response = await client.get(f"{ANALYTICS_SERVICE_URL}/my/clicks/url/{url_id}", headers=headers, timeout=5.0)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("total_clicks", 0)
+            else:
+                return 0
+    except Exception:
+        return 0

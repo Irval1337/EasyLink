@@ -231,3 +231,16 @@ async def admin_export_raw_clicks(
         response.media_type = "text/csv"
         response.headers["Content-Disposition"] = "attachment; filename=admin_clicks.csv"
         return export_clicks_to_csv(events)
+
+@admin_router.get("/clicks/url/{url_id}", tags=["admin"])
+async def get_url_clicks_count(
+    url_id: int,
+    session: SessionDep,
+    admin_verified: bool = Depends(verify_admin_token)
+):
+    count_query = select(func.count(ClickEvent.id)).where(ClickEvent.url_id == url_id)
+    total_clicks = session.exec(count_query).first()
+    return {
+        "url_id": url_id,
+        "total_clicks": total_clicks or 0
+    }
