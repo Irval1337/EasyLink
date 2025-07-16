@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi import Depends
 from datetime import timedelta
 from pydantic import ValidationError
+import logging
 
 from app.database import SessionDep
 from app.schemas.users import (
@@ -20,6 +21,7 @@ from app.config import SECRET_KEY
 from app.api.dependencies import get_current_user
 from app.models.user import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/register", response_model=UserResponse)
@@ -41,6 +43,13 @@ def register(user: UserCreate, session: SessionDep):
 def login(user_credentials: UserLogin, session: SessionDep):
     try:
         user = authenticate_user(session, user_credentials.identifier, user_credentials.password)
+        
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(user.id), "version": user.token_version},
+            expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,13 +63,6 @@ def login(user_credentials: UserLogin, session: SessionDep):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id), "version": user.token_version},
-        expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
 @router.get("/me", response_model=UserResponse)
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user

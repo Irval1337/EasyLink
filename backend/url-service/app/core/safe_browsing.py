@@ -12,6 +12,9 @@ class SafeBrowsingService:
         self.enabled = SAFE_BROWSING_ENABLED and bool(self.api_key)
         self.base_url = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
         
+        if not self.enabled:
+            pass
+        
     async def check_url_safety(self, url: str) -> Dict[str, any]:
         if not self.enabled:
             return {
@@ -51,33 +54,33 @@ class SafeBrowsingService:
                 
                 if response.status_code == 200:
                     result = response.json()
-                    if "matches" in result and result["matches"]:
+                    if "matches" in result:
                         threats = [match["threatType"] for match in result["matches"]]
+                        logger.warning(f"URL {url} flagged as unsafe: {threats}")
                         return {
                             "is_safe": False,
                             "threats": threats,
-                            "details": f"URL flagged with threats: {', '.join(threats)}"
+                            "details": f"Threats detected: {', '.join(threats)}"
                         }
                     else:
                         return {
                             "is_safe": True,
                             "threats": [],
-                            "details": "URL passed safety check"
+                            "details": "No threats detected"
                         }
                 else:
-                    logger.error(f"Safe Browsing API error: {response.status_code} - {response.text}")
+                    logger.error(f"Safe Browsing API error: {response.status_code}")
                     return {
                         "is_safe": True,
                         "threats": [],
-                        "details": f"Safety check failed (API error: {response.status_code})"
+                        "details": f"API error: {response.status_code}"
                     }
-                    
         except Exception as e:
-            logger.error(f"Error checking URL safety: {str(e)}")
+            logger.error(f"Error checking URL safety for {url}: {e}")
             return {
                 "is_safe": True,
                 "threats": [],
-                "details": f"Safety check failed (error: {str(e)})"
+                "details": f"Error checking URL: {str(e)}"
             }
     
     def get_threat_description(self, threat_type: str) -> str:

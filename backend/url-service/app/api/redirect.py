@@ -2,11 +2,13 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import RedirectResponse, HTMLResponse
 from datetime import datetime
 import httpx
+import logging
 
 from app.database import SessionDep
 from app.crud.url import get_url_by_short_code, decrement_clicks_count
 from app.config import MAX_CUSTOM_URL_LENGTH, ANALYTICS_SERVICE_URL
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 async def track_click_event(request: Request, url_id: int, short_code: str):
@@ -38,8 +40,8 @@ async def track_click_event(request: Request, url_id: int, short_code: str):
                 headers=request_headers,
                 timeout=5.0
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Error sending click event to Analytics Service for URL {short_code}: {e}")
 
 def is_social_media_bot(user_agent: str) -> bool:
     social_bots = [
@@ -140,4 +142,5 @@ async def redirect_url(
     decrement_clicks_count(session, url)
     session.refresh(url)
     await track_click_event(request, url.id, short_code)
+    
     return RedirectResponse(url=url.original_url, status_code=301)

@@ -9,6 +9,7 @@ import json
 from passlib.context import CryptContext
 from jinja2 import Environment, FileSystemLoader
 import os
+import logging
 
 from app.config import (
     SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, 
@@ -16,6 +17,7 @@ from app.config import (
     EMAIL_ACTIVATION_TOKEN_EXPIRE_HOURS, FRONTEND_URL
 )
 
+logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class EmailService:
@@ -28,13 +30,13 @@ class EmailService:
         self.from_email = FROM_EMAIL
         
         if not self.smtp_username or not self.smtp_password:
-            pass
+            logger.warning("SMTP credentials not configured - email sending will be unavailable")
         
         template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
         self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
         
         if not os.path.exists(template_dir):
-            pass
+            logger.warning(f"Template directory not found: {template_dir}")
     
     def create_email_activation_token(self, email: str) -> str:
         expire = datetime.utcnow() + timedelta(hours=EMAIL_ACTIVATION_TOKEN_EXPIRE_HOURS)
@@ -54,12 +56,14 @@ class EmailService:
         try:
             parts = token.split('.')
             if len(parts) != 2:
+                logger.warning("Invalid email activation token format")
                 return None
             payload_b64, token_hash_encoded = parts
 
             try:
                 token_hash = base64.urlsafe_b64decode(token_hash_encoded.encode()).decode()
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Error decoding token: {e}")
                 return None
             
             verify_string = f"{payload_b64}:{SECRET_KEY}"
@@ -80,7 +84,8 @@ class EmailService:
             
             return payload.get("email")
             
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error verifying email activation token: {e}")
             return None
     
     def send_email(self, to_email: str, subject: str, html_content: str) -> bool:
@@ -103,6 +108,7 @@ class EmailService:
                 server.send_message(message)
             return True
         except Exception as e:
+            logger.error(f"Error sending email to {to_email}: {e}")
             return False
     
     def send_activation_email(self, email: str, username: str) -> bool:
@@ -117,6 +123,7 @@ class EmailService:
                 frontend_url=FRONTEND_URL
             )
         except Exception as e:
+            logger.error(f"Error rendering email template for {email}: {e}")
             return False
         
         subject = "Подтвердите ваш email - EasyLink"

@@ -9,18 +9,26 @@ from app.config import MAX_CUSTOM_URL_LENGTH
 import qrcode
 import io
 import base64
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
     if not validate_url(str(url_data.original_url)):
         raise ValueError("Invalid URL format or URL too long")
     
-    safety_check = await safe_browsing_service.check_url_safety(str(url_data.original_url))
-    if not safety_check["is_safe"]:
-        threat_descriptions = [
-            safe_browsing_service.get_threat_description(threat) 
-            for threat in safety_check["threats"]
-        ]
-        raise ValueError(f"URL flagged as unsafe: {'; '.join(threat_descriptions)}")
+    try:
+        safety_check = await safe_browsing_service.check_url_safety(str(url_data.original_url))
+        if not safety_check["is_safe"]:
+            logger.warning(f"URL flagged as unsafe: {url_data.original_url}, threats: {safety_check['threats']}")
+            threat_descriptions = [
+                safe_browsing_service.get_threat_description(threat) 
+                for threat in safety_check["threats"]
+            ]
+            raise ValueError(f"URL flagged as unsafe: {'; '.join(threat_descriptions)}")
+    except Exception as e:
+        logger.error(f"Error checking URL safety for {url_data.original_url}: {e}")
+        raise
     
     if url_data.custom_code:
         if not validate_custom_code(url_data.custom_code):
@@ -50,34 +58,45 @@ async def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url
         safety_threats=safety_threats
     )
     
-    session.add(url)
-    session.commit()
-    session.refresh(url)
-    return url
+    try:
+        session.add(url)
+        session.commit()
+        session.refresh(url)
+        return url
+    except Exception as e:
+        logger.error(f"Error saving URL to database: {e}")
+        session.rollback()
+        raise
 
 async def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int) -> Optional[Url]:
     if user_id == -1:
         return None
-        
+
     url = session.exec(select(Url).where(Url.id == url_id, Url.user_id == user_id)).first()
     if not url:
         return None
     
+    updated_fields = []
     
     if url_data.password is not None:
         url.password = url_data.password
+        updated_fields.append("password")
     
     if url_data.expires_at is not None:
         url.expires_at = url_data.expires_at
+        updated_fields.append("expires_at")
     
     if url_data.is_active is not None:
         url.is_active = url_data.is_active
+        updated_fields.append("is_active")
     
     if url_data.remaining_clicks:
         url.remaining_clicks = url_data.remaining_clicks
+        updated_fields.append("remaining_clicks")
     
     if url_data.hide_thumbnail is not None:
         url.hide_thumbnail = url_data.hide_thumbnail
+        updated_fields.append("hide_thumbnail")
     
     session.add(url)
     session.commit()
@@ -85,6 +104,7 @@ async def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id
     return url
 
 def deactivate_url(session: Session, url_id: int, user_id: int) -> Optional[Url]:
+    
     if user_id == -1:
         return None
         
@@ -157,9 +177,11 @@ def get_user_urls(
     if domain:
         query = query.where(Url.original_url.contains(f"://{domain}"))
     
-    return session.exec(
+    urls = session.exec(
         query.offset(skip).limit(limit).order_by(Url.created_at.desc())
     ).all()
+
+    return urls
 
 def count_user_urls(
     session: Session, 
@@ -181,7 +203,8 @@ def count_user_urls(
     if domain:
         query = query.where(Url.original_url.contains(f"://{domain}"))
     
-    return session.exec(query).first() or 0
+    count = session.exec(query).first() or 0
+    return count
 
 def get_url_by_id(session: Session, url_id: int, user_id: Optional[int] = None) -> Optional[Url]:
     query = select(Url).where(Url.id == url_id)

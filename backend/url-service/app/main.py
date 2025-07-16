@@ -4,10 +4,17 @@ from fastapi.staticfiles import StaticFiles
 from app.config import ALLOWED_ORIGINS, DEBUG, MAX_CUSTOM_URL_LENGTH, SHORT_CODE_LENGTH
 from app.database import init_db
 from app.api import url, redirect, admin
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="EasyLink URL Shortener",
-    version="1.0.5",
+    version="1.0.6",
     debug=DEBUG
 )
 
@@ -23,7 +30,13 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.on_event("startup")
 async def startup_event():
-    init_db()
+    logger.info("Starting URL Service...")
+    try:
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
 
 @app.get("/")
 async def root():

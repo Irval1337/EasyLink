@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlmodel import select
 from typing import Optional
 from datetime import datetime
+import logging
 
 from app.database import SessionDep
 from app.schemas.url import UrlCreate, UrlUpdate, UrlResponse, UrlListResponse
@@ -13,6 +14,7 @@ from app.crud.url import (
 )
 from app.api.dependencies import get_current_user, get_current_user_optional
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def format_url_response(url, request: Request) -> UrlResponse:
@@ -40,13 +42,17 @@ async def shorten_url(
     session: SessionDep,
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
+    user_id = current_user["id"] if current_user else -1
+    
     try:
-        user_id = current_user["id"] if current_user else -1
         url = await create_url(session, url_data, user_id)
         return format_url_response(url, request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+    except Exception as e:
+        logger.error(f"Unexpected error shortening URL: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 @router.put("/{url_id}", response_model=UrlResponse)
 async def update_url_endpoint(
     url_id: int,
@@ -61,7 +67,11 @@ async def update_url_endpoint(
             raise HTTPException(status_code=404, detail="URL not found or access denied")
         return format_url_response(url, request)
     except ValueError as e:
+        logger.warning(f"Error while updating URL {url_id}: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error while updating URL {url_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.patch("/{url_id}/deactivate", response_model=UrlResponse)
 async def deactivate_url_endpoint(

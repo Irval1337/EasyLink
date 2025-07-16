@@ -6,6 +6,9 @@ from app.core.users import get_password_hash, verify_password
 from app.core.email import email_service
 from datetime import datetime, timedelta
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserAlreadyExistsError(Exception):
     def __init__(self, field: str, value: str):
@@ -56,18 +59,27 @@ def create_user(session: Session, user: UserCreate) -> User:
         email_verified=False,
         token_version=1
     )
-    session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
-    success = email_service.send_activation_email(db_user.email, db_user.username)
     
-    if success:
-        db_user.last_activation_email_sent = datetime.utcnow()
+    try:
         session.add(db_user)
         session.commit()
         session.refresh(db_user)
-    
-    return db_user
+        
+        success = email_service.send_activation_email(db_user.email, db_user.username)
+        
+        if success:
+            db_user.last_activation_email_sent = datetime.utcnow()
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+        else:
+            logger.error(f"Failed to send activation email to: {user.email}")
+        
+        return db_user
+    except Exception as e:
+        logger.error(f"Error creating user {user.email}: {e}")
+        session.rollback()
+        raise
 
 def update_user(session: Session, current_user: User, user_update: UserUpdate) -> User:
     if not verify_password(user_update.current_password, current_user.hashed_password):
@@ -97,7 +109,6 @@ def update_user(session: Session, current_user: User, user_update: UserUpdate) -
     
     if invalidate_tokens:
         current_user.token_version += 1
-    
     current_user.updated_at = datetime.utcnow()
     session.add(current_user)
     session.commit()
@@ -191,6 +202,7 @@ def resend_activation_email(session: Session, user: User) -> bool:
     
     success = email_service.send_activation_email(user.email, user.username)
     if not success:
+        logger.error(f"Could not resend activation email to user: {user.email}")
         return False
     user.last_activation_email_sent = datetime.utcnow()
     session.add(user)

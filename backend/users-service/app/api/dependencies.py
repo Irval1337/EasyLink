@@ -7,6 +7,9 @@ from app.crud.users import get_user_by_id_optional
 from app.models.user import User
 
 from app.config import ADMIN_TOKEN
+import logging
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -15,39 +18,33 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> User:
     token = credentials.credentials
-    token_data = verify_token(token)
-    if token_data is None:
+    payload = verify_token(token)
+    if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Could not validate credentials"
         )
     
-    user_id, token_version = token_data
-    user = get_user_by_id_optional(session, user_id=user_id)
+    user_id = payload.get("user_id")
+    user = get_user_by_id_optional(session, user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found, token is invalid",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    if user.token_version != token_version:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has been invalidated",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Could not validate credentials"
         )
     
     return user
 
 async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
     if not credentials:
+        logger.warning("Admin access attempted without token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
     
     if credentials.credentials != ADMIN_TOKEN:
+        logger.warning("Admin access attempted with invalid token")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"

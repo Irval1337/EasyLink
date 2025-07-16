@@ -3,6 +3,9 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from app.config import USERS_SERVICE_URL, ADMIN_TOKEN
+import logging
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
@@ -18,8 +21,10 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
             if response.status_code == 200:
                 user_data = response.json()
                 return user_data
-            return None
+            else:
+                return None
     except Exception as e:
+        logger.error(f"Error verifying token: {e}")
         return None
 
 async def get_current_user(user_data: dict = Depends(verify_token)) -> dict:
@@ -40,12 +45,14 @@ async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = 
 
 async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
     if not credentials:
+        logger.warning("Admin access attempted without token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
     
     if credentials.credentials != ADMIN_TOKEN:
+        logger.warning("Admin access attempted with invalid token")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"

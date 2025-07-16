@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 import httpx
 import sys
+import logging
 
 from app.database import SessionDep
 from app.schemas.analytics import ClickEventCreate, ClickEventResponse
@@ -13,6 +14,7 @@ from app.core.export import export_stats_to_json, export_stats_to_csv, export_cl
 from app.api.dependencies import get_current_user, get_current_user_optional
 from app.config import URL_SERVICE_URL, ADMIN_TOKEN
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/events", response_model=ClickEventResponse)
@@ -39,8 +41,8 @@ async def track_click(
             if response.status_code == 200:
                 url_data = response.json()
                 user_id = url_data.get("user_id")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Error getting user_id for URL ID {click_data.url_id}: {e}")
     
     event_data = {
         "url_id": click_data.url_id,
@@ -55,9 +57,7 @@ async def track_click(
         "os": user_agent_info.get("os")
     }
     
-    event = create_click_event(session, event_data)
-    
-    return event
+    return create_click_event(session, event_data)
 
 @router.get("/stats")
 async def get_analytics(
@@ -165,7 +165,6 @@ async def get_analytics(
         },
         "generated_at": now.isoformat()
     })
-    
     return stats
 
 @router.get("/stats/export")
