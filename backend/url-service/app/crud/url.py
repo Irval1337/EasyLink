@@ -2,6 +2,7 @@ from sqlmodel import Session, select
 from app.models.url import Url
 from app.schemas.url import UrlCreate, UrlUpdate
 from app.core.utils import generate_unique_short_code, validate_url, validate_custom_code
+from app.core.safe_browsing import safe_browsing_service
 from datetime import datetime
 from typing import Optional
 from app.config import MAX_CUSTOM_URL_LENGTH
@@ -9,9 +10,17 @@ import qrcode
 import io
 import base64
 
-def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
+async def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
     if not validate_url(str(url_data.original_url)):
         raise ValueError("Invalid URL format or URL too long")
+    
+    safety_check = await safe_browsing_service.check_url_safety(str(url_data.original_url))
+    if not safety_check["is_safe"]:
+        threat_descriptions = [
+            safe_browsing_service.get_threat_description(threat) 
+            for threat in safety_check["threats"]
+        ]
+        raise ValueError(f"URL flagged as unsafe: {'; '.join(threat_descriptions)}")
     
     if url_data.custom_code:
         if not validate_custom_code(url_data.custom_code):
@@ -24,6 +33,10 @@ def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
     else:
         short_code = generate_unique_short_code(session, str(url_data.original_url))
     
+    import json
+    safety_status = "safe" if safety_check["is_safe"] else "unsafe"
+    safety_threats = json.dumps(safety_check["threats"]) if safety_check["threats"] else None
+    
     url = Url(
         original_url=str(url_data.original_url),
         short_code=short_code,
@@ -31,7 +44,10 @@ def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
         expires_at=url_data.expires_at,
         password=url_data.password,
         remaining_clicks=url_data.remaining_clicks,
-        hide_thumbnail=url_data.hide_thumbnail
+        hide_thumbnail=url_data.hide_thumbnail,
+        safety_check_status=safety_status,
+        safety_check_at=datetime.utcnow(),
+        safety_threats=safety_threats
     )
     
     session.add(url)
@@ -39,7 +55,7 @@ def create_url(session: Session, url_data: UrlCreate, user_id: int) -> Url:
     session.refresh(url)
     return url
 
-def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int) -> Optional[Url]:
+async def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int) -> Optional[Url]:
     if user_id == -1:
         return None
         
@@ -47,10 +63,6 @@ def update_url(session: Session, url_id: int, url_data: UrlUpdate, user_id: int)
     if not url:
         return None
     
-    if url_data.original_url is not None:
-        if not validate_url(str(url_data.original_url)):
-            raise ValueError("Invalid URL format or URL too long")
-        url.original_url = str(url_data.original_url)
     
     if url_data.password is not None:
         url.password = url_data.password

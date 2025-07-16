@@ -15,3 +15,6 @@ class Url(SQLModel, table=True):
     hide_thumbnail: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: Optional[datetime] = Field(default=None)
+    safety_check_status: Optional[str] = Field(default=None)
+    safety_check_at: Optional[datetime] = Field(default=None)
+    safety_threats: Optional[str] = Field(default=None)

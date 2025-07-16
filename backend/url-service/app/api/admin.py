@@ -7,13 +7,36 @@ import logging
 from app.database import SessionDep
 from app.crud.url import check_and_deactivate_expired_urls, get_url_by_id
 from app.api.dependencies import verify_admin_token
-from app.schemas.url import UrlResponse
+from app.schemas.url import UrlResponse, SafetyCheckRequest, SafetyCheckResponse
+from app.core.safe_browsing import safe_browsing_service
 from sqlmodel import select, func
 from app.models.url import Url
 from app.config import ADMIN_TOKEN, ANALYTICS_SERVICE_URL
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+@router.post("/check-url-safety", response_model=SafetyCheckResponse)
+async def check_url_safety(
+    request_data: SafetyCheckRequest,
+    session: SessionDep,
+    admin_verified: bool = Depends(verify_admin_token)
+):
+    try:
+        safety_check = await safe_browsing_service.check_url_safety(request_data.url)
+        return SafetyCheckResponse(
+            url=request_data.url,
+            is_safe=safety_check["is_safe"],
+            threats=safety_check["threats"],
+            details=safety_check["details"],
+            threat_descriptions=[
+                safe_browsing_service.get_threat_description(threat) 
+                for threat in safety_check["threats"]
+            ] if safety_check["threats"] else []
+        )
+    except Exception as e:
+        logger.error(f"Error checking URL safety: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Safety check failed: {str(e)}")
 
 @router.get("/urls/stats")
 async def get_urls_stats_summary(
@@ -76,7 +99,10 @@ def format_url_response(url, request: Request) -> UrlResponse:
         has_password=url.password is not None,
         created_at=url.created_at,
         expires_at=url.expires_at,
-        remaining_clicks=url.remaining_clicks
+        remaining_clicks=url.remaining_clicks,
+        hide_thumbnail=url.hide_thumbnail,
+        safety_check_status=url.safety_check_status,
+        safety_check_at=url.safety_check_at
     )
 
 async def get_clicks_count_for_url(url_id: int) -> int:
@@ -218,3 +244,76 @@ async def get_url_user_id(
     if not url:
         raise HTTPException(status_code=404, detail="URL not found")
     return {"user_id": url.user_id}
+
+@router.post("/urls/security-scan")
+async def security_scan_urls(
+    session: SessionDep,
+    admin_verified: bool = Depends(verify_admin_token),
+    limit: int = Query(100, ge=1, le=1000),
+    user_id: Optional[int] = Query(None)
+):
+    try:
+        query = select(Url).where(Url.is_active == True)
+        if user_id:
+            query = query.where(Url.user_id == user_id)
+        
+        query = query.limit(limit)
+        urls = session.exec(query).all()
+        
+        results = []
+        unsafe_count = 0
+        
+        for url in urls:
+            try:
+                safety_check = await safe_browsing_service.check_url_safety(url.original_url)
+                import json
+                url.safety_check_status = "safe" if safety_check["is_safe"] else "unsafe"
+                url.safety_check_at = datetime.utcnow()
+                url.safety_threats = json.dumps(safety_check["threats"]) if safety_check["threats"] else None
+                
+                result = {
+                    "url_id": url.id,
+                    "short_code": url.short_code,
+                    "original_url": url.original_url,
+                    "is_safe": safety_check["is_safe"],
+                    "threats": safety_check["threats"],
+                    "details": safety_check["details"]
+                }
+                
+                if not safety_check["is_safe"]:
+                    url.is_active = False
+                    unsafe_count += 1
+                    result["action"] = "deactivated"
+                else:
+                    result["action"] = "no_action"
+                
+                session.add(url)
+                results.append(result)
+                
+            except Exception as e:
+                logger.error(f"Error scanning URL {url.id}: {str(e)}")
+                url.safety_check_status = "error"
+                url.safety_check_at = datetime.utcnow()
+                session.add(url)
+                
+                results.append({
+                    "url_id": url.id,
+                    "short_code": url.short_code,
+                    "original_url": url.original_url,
+                    "is_safe": None,
+                    "threats": [],
+                    "details": f"Scan failed: {str(e)}",
+                    "action": "scan_failed"
+                })
+        session.commit()
+        
+        return {
+            "scanned_count": len(urls),
+            "unsafe_count": unsafe_count,
+            "deactivated_count": unsafe_count,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during security scan: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Security scan failed: {str(e)}")

@@ -22,3 +22,6 @@ RESERVED_SHORT_CODES = {
 }
 
 ADMIN_TOKEN = config("ADMIN_TOKEN", default="admin_secret_token_12345")
+
+GOOGLE_SAFE_BROWSING_API_KEY = config("GOOGLE_SAFE_BROWSING_API_KEY", default="")
+SAFE_BROWSING_ENABLED = config("SAFE_BROWSING_ENABLED", default=True, cast=bool)

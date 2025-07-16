@@ -11,7 +11,6 @@ class UrlCreate(BaseModel):
     hide_thumbnail: bool = False
 
 class UrlUpdate(BaseModel):
-    original_url: Optional[HttpUrl] = None
     password: Optional[str] = None
     expires_at: Optional[datetime] = None
     is_active: Optional[bool] = None
@@ -30,6 +29,8 @@ class UrlResponse(BaseModel):
     expires_at: Optional[datetime] = None
     remaining_clicks: Optional[int] = None
     hide_thumbnail: bool
+    safety_check_status: Optional[str] = None
+    safety_check_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -40,3 +41,13 @@ class UrlListResponse(BaseModel):
     skip: Optional[int] = None
     limit: Optional[int] = None
     filters: Optional[dict] = None
+
+class SafetyCheckRequest(BaseModel):
+    url: str
+
+class SafetyCheckResponse(BaseModel):
+    url: str
+    is_safe: bool
+    threats: list[str]
+    details: str
+    threat_descriptions: list[str]

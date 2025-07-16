@@ -22,13 +22,15 @@ def format_url_response(url, request: Request) -> UrlResponse:
         original_url=url.original_url,
         short_code=url.short_code,
         short_url=f"{base_url}/{url.short_code}",
-        user_id=getattr(url, 'user_id', None),
+        user_id=url.user_id,
         is_active=url.is_active,
         has_password=url.password is not None,
         created_at=url.created_at,
         expires_at=url.expires_at,
         remaining_clicks=url.remaining_clicks,
-        hide_thumbnail=url.hide_thumbnail
+        hide_thumbnail=url.hide_thumbnail,
+        safety_check_status=url.safety_check_status,
+        safety_check_at=url.safety_check_at
     )
 
 @router.post("/shorten", response_model=UrlResponse)
@@ -40,7 +42,7 @@ async def shorten_url(
 ):
     try:
         user_id = current_user["id"] if current_user else -1
-        url = create_url(session, url_data, user_id)
+        url = await create_url(session, url_data, user_id)
         return format_url_response(url, request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -54,7 +56,7 @@ async def update_url_endpoint(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        url = update_url(session, url_id, url_data, current_user["id"])
+        url = await update_url(session, url_id, url_data, current_user["id"])
         if not url:
             raise HTTPException(status_code=404, detail="URL not found or access denied")
         return format_url_response(url, request)
