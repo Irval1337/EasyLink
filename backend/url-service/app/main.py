@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import ALLOWED_ORIGINS, DEBUG, MAX_CUSTOM_URL_LENGTH, SHORT_CODE_LENGTH
 from app.database import init_db
 from app.api import url, redirect, admin
+from app.core.rate_limiting import setup_rate_limiting
 import logging
 
 logging.basicConfig(
@@ -15,8 +16,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="EasyLink URL Shortener",
     version="1.0.6",
-    debug=DEBUG
+    root_path="/api/urls"
 )
+
+limiter = setup_rate_limiting(app)
 
 app.add_middleware(
     CORSMiddleware,

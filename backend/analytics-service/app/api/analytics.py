@@ -13,11 +13,13 @@ from app.core.stats import calculate_stats, calculate_public_stats_async
 from app.core.export import export_stats_to_json, export_stats_to_csv, export_clicks_to_json, export_clicks_to_csv
 from app.api.dependencies import get_current_user, get_current_user_optional
 from app.config import URL_SERVICE_URL, ADMIN_TOKEN
+from app.core.rate_limiting import limiter, RATE_LIMIT_GENERAL, RATE_LIMIT_STRICT
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/events", response_model=ClickEventResponse)
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def track_click(
     request: Request,
     click_data: ClickEventCreate,
@@ -60,7 +62,9 @@ async def track_click(
     return create_click_event(session, event_data)
 
 @router.get("/stats")
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def get_analytics(
+    request: Request,
     session: SessionDep,
     user_data: dict = Depends(get_current_user),
     url_id: Optional[int] = None,
@@ -168,7 +172,9 @@ async def get_analytics(
     return stats
 
 @router.get("/stats/export")
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def export_stats(
+    request: Request,
     response: Response,
     session: SessionDep,
     user_data: dict = Depends(get_current_user),
@@ -257,7 +263,9 @@ async def export_stats(
         return export_stats_to_csv(stats)
 
 @router.get("/clicks")
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def get_raw_clicks(
+    request: Request,
     session: SessionDep,
     user_data: dict = Depends(get_current_user),
     url_id: Optional[int] = None,
@@ -346,7 +354,9 @@ async def get_raw_clicks(
     }
 
 @router.get("/clicks/export")
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def export_raw_clicks(
+    request: Request,
     response: Response,
     session: SessionDep,
     user_data: dict = Depends(get_current_user),
@@ -419,8 +429,10 @@ async def export_raw_clicks(
         response.headers["Content-Disposition"] = "attachment; filename=clicks.csv"
         return export_clicks_to_csv(events)
 
-@router.get("/my/clicks/url/{url_id}")
+@router.get("/clicks/{url_id}")
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def get_my_url_clicks_count(
+    request: Request,
     url_id: int,
     session: SessionDep,
     user_data: dict = Depends(get_current_user)

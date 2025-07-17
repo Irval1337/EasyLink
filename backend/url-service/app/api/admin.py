@@ -109,7 +109,7 @@ async def get_clicks_count_for_url(url_id: int) -> int:
     try:
         async with httpx.AsyncClient() as client:
             headers = {"Authorization": f"Bearer {ADMIN_TOKEN}"}
-            response = await client.get(f"{ANALYTICS_SERVICE_URL}/admin/clicks/url/{url_id}", headers=headers, timeout=5.0)
+            response = await client.get(f"{ANALYTICS_SERVICE_URL}/admin/clicks/{url_id}", headers=headers, timeout=5.0)
             
             if response.status_code == 200:
                 data = response.json()

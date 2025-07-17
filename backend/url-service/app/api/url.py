@@ -13,6 +13,7 @@ from app.crud.url import (
     get_url_with_qr_code, count_user_urls
 )
 from app.api.dependencies import get_current_user, get_current_user_optional
+from app.core.rate_limiting import limiter, RATE_LIMIT_GENERAL, RATE_LIMIT_STRICT
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -36,6 +37,7 @@ def format_url_response(url, request: Request) -> UrlResponse:
     )
 
 @router.post("/shorten", response_model=UrlResponse)
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def shorten_url(
     url_data: UrlCreate,
     request: Request,
@@ -54,6 +56,7 @@ async def shorten_url(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/{url_id}", response_model=UrlResponse)
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def update_url_endpoint(
     url_id: int,
     url_data: UrlUpdate,

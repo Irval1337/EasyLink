@@ -7,6 +7,7 @@ import logging
 from app.database import SessionDep
 from app.crud.url import get_url_by_short_code, decrement_clicks_count
 from app.config import MAX_CUSTOM_URL_LENGTH, ANALYTICS_SERVICE_URL
+from app.core.rate_limiting import limiter, RATE_LIMIT_GENERAL
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,6 +55,7 @@ def is_social_media_bot(user_agent: str) -> bool:
     return any(bot in user_agent_lower for bot in social_bots)
 
 @router.get("/{short_code}")
+@limiter.limit(RATE_LIMIT_GENERAL)
 async def redirect_url(
     request: Request,
     session: SessionDep,

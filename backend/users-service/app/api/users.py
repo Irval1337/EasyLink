@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from fastapi import Depends
 from datetime import timedelta
 from pydantic import ValidationError
@@ -20,12 +20,14 @@ from app.core.email import email_service
 from app.config import SECRET_KEY
 from app.api.dependencies import get_current_user
 from app.models.user import User
+from app.core.rate_limiting import limiter, RATE_LIMIT_AUTH, RATE_LIMIT_GENERAL
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/register", response_model=UserResponse)
-def register(user: UserCreate, session: SessionDep):
+@limiter.limit(RATE_LIMIT_AUTH)
+def register(request: Request, user: UserCreate, session: SessionDep):
     try:
         return create_user(session=session, user=user)
     except UserAlreadyExistsError as e:
@@ -40,7 +42,8 @@ def register(user: UserCreate, session: SessionDep):
         )
 
 @router.post("/login", response_model=Token)
-def login(user_credentials: UserLogin, session: SessionDep):
+@limiter.limit(RATE_LIMIT_AUTH)
+def login(request: Request, user_credentials: UserLogin, session: SessionDep):
     try:
         user = authenticate_user(session, user_credentials.identifier, user_credentials.password)
         
@@ -100,7 +103,8 @@ def logout(
     return {"message": "Successfully logged out"}
 
 @router.post("/verify-token")
-def verify_user_token(current_user: User = Depends(get_current_user)):
+@limiter.limit(RATE_LIMIT_AUTH)
+def verify_user_token(request: Request, current_user: User = Depends(get_current_user)):
     return {"message": "Token is valid", "user_id": current_user.id}
 
 @router.get("/activate-email", response_model=EmailActivationResponse)

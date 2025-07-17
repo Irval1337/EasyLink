@@ -100,7 +100,7 @@ async def admin_detailed_stats(
     })
     return stats
 
-@admin_router.get("/export", tags=["admin"])
+@admin_router.get("/stats/export", tags=["admin"])
 async def admin_export_stats(
     response: Response,
     session: SessionDep,
@@ -232,7 +232,7 @@ async def admin_export_raw_clicks(
         response.headers["Content-Disposition"] = "attachment; filename=admin_clicks.csv"
         return export_clicks_to_csv(events)
 
-@admin_router.get("/clicks/url/{url_id}", tags=["admin"])
+@admin_router.get("/clicks/{url_id}", tags=["admin"])
 async def get_url_clicks_count(
     url_id: int,
     session: SessionDep,

@@ -5,6 +5,7 @@ from app.database import create_db_and_tables
 from app.api.analytics import router as analytics_router
 from app.api.admin import admin_router
 from app.config import ALLOWED_ORIGINS
+from app.core.rate_limiting import setup_rate_limiting
 import logging
 
 logging.basicConfig(
@@ -15,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Analytics Service",
-    version="1.0.2"
+    version="1.0.2",
+    root_path="/api/analytics"
 )
+
+limiter = setup_rate_limiting(app)
 
 app.add_middleware(
     CORSMiddleware,
