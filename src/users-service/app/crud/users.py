@@ -7,6 +7,7 @@ from app.core.email import email_service
 from datetime import datetime, timedelta
 import re
 import logging
+from app.config import EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,12 @@ class EmailNotVerifiedError(Exception):
     def __init__(self):
         super().__init__("Email is not verified")
 
-class EmailActivationCooldownError(Exception):
-    def __init__(self, remaining_minutes: int):
+class EmailSendCooldownError(Exception):
+    def __init__(self, remaining_minutes: int, message: str = None):
         self.remaining_minutes = remaining_minutes
-        super().__init__(f"Please wait {remaining_minutes} minutes before requesting another activation email")
+        if message is None:
+            message = f"Please wait {remaining_minutes} minutes before requesting another email."
+        super().__init__(message)
 
 def is_email(identifier: str) -> bool:
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -68,7 +71,7 @@ def create_user(session: Session, user: UserCreate) -> User:
         success = email_service.send_activation_email(db_user.email, db_user.username)
         
         if success:
-            db_user.last_activation_email_sent = datetime.utcnow()
+            db_user.last_email_sent = datetime.utcnow()
             session.add(db_user)
             session.commit()
             session.refresh(db_user)
@@ -175,36 +178,65 @@ def activate_user_email(session: Session, email: str) -> User:
     session.refresh(user)
     return user
 
-def can_resend_activation_email(session: Session, user: User) -> bool:
-    from app.config import EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES
-    if user.last_activation_email_sent is None:
+def can_send_email(session: Session, user: User) -> bool:
+    if user.last_email_sent is None:
         return True
-    
-    cooldown_time = user.last_activation_email_sent + timedelta(minutes=EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES)
+    cooldown_time = user.last_email_sent + timedelta(minutes=EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES)
     return datetime.utcnow() > cooldown_time
 
-def get_activation_email_cooldown_remaining(session: Session, user: User) -> int:
-    from app.config import EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES
-    if user.last_activation_email_sent is None:
+def get_email_cooldown_remaining(session: Session, user: User) -> int:
+    if user.last_email_sent is None:
         return 0
-    
-    cooldown_time = user.last_activation_email_sent + timedelta(minutes=EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES)
+    cooldown_time = user.last_email_sent + timedelta(minutes=EMAIL_ACTIVATION_RESEND_COOLDOWN_MINUTES)
     remaining = cooldown_time - datetime.utcnow()
     if remaining.total_seconds() <= 0:
         return 0
-    
     return int(remaining.total_seconds() / 60) + 1
 
+def mark_email_sent(session: Session, user: User):
+    user.last_email_sent = datetime.utcnow()
+    session.add(user)
+    session.commit()
+
 def resend_activation_email(session: Session, user: User) -> bool:
-    if not can_resend_activation_email(session, user):
-        remaining = get_activation_email_cooldown_remaining(session, user)
-        raise EmailActivationCooldownError(remaining)
-    
+    if not can_send_email(session, user):
+        remaining = get_email_cooldown_remaining(session, user)
+        raise EmailSendCooldownError(remaining, "Please wait before requesting another activation email.")
     success = email_service.send_activation_email(user.email, user.username)
     if not success:
         logger.error(f"Could not resend activation email to user: {user.email}")
         return False
-    user.last_activation_email_sent = datetime.utcnow()
+    mark_email_sent(session, user)
+    return True
+
+def send_password_reset(session: Session, email: str) -> None:
+    user = get_user_by_email(session, email)
+    if not user.email_verified:
+        raise EmailNotVerifiedError()
+    if not can_send_email(session, user):
+        remaining = get_email_cooldown_remaining(session, user)
+        raise EmailSendCooldownError(remaining, "Please wait before requesting another password reset email.")
+    success = email_service.send_password_reset_email(user.email, user.username, user.token_version)
+    if not success:
+        logger.error(f"Could not send password reset email to user: {user.email}")
+        raise Exception("Failed to send password reset email")
+    mark_email_sent(session, user)
+
+def reset_password_confirm(session: Session, token: str, new_password: str) -> None:
+    payload = email_service.verify_password_reset_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired password reset token")
+    email = payload.get("email")
+    token_version = payload.get("token_version")
+    if not email or token_version is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password reset token")
+    user = get_user_by_email(session, email)
+    if not user.email_verified:
+        raise EmailNotVerifiedError()
+    if user.token_version != token_version:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ссылка для сброса пароля устарела. Запросите новую.")
+    user.hashed_password = get_password_hash(new_password)
+    user.token_version += 1
+    user.updated_at = datetime.utcnow()
     session.add(user)
     session.commit()
-    return True

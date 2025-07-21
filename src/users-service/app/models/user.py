@@ -11,7 +11,7 @@ class User(SQLModel, table=True):
     hashed_password: str
     is_active: bool = Field(default=True)
     email_verified: bool = Field(default=False)
-    last_activation_email_sent: Optional[datetime] = Field(default=None)
+    last_email_sent: Optional[datetime] = Field(default=None)
     token_version: int = Field(default=1)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)

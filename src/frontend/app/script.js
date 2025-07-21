@@ -14,6 +14,65 @@ document.addEventListener('DOMContentLoaded', async function() {
   window.LINKS_LIMIT = 5;
   window.linksSkip = 0;
 
+  window.loadPasswordResetModal = async function() {
+    if (document.getElementById('password-reset-modal')) return;
+    const html = await fetch('modals/password_reset_modal.html').then(r => r.text());
+    document.getElementById('password-reset-modal-placeholder').innerHTML = html;
+    initPasswordResetModalHandlers();
+  };
+
+  function initPasswordResetModalHandlers() {
+    const modal = document.getElementById('password-reset-modal');
+    if (!modal) return;
+    const closeBtn = modal.querySelector('#close-password-reset');
+    if (closeBtn) closeBtn.onclick = () => closeModal(modal);
+    const backToLoginBtn = modal.querySelector('#back-to-login-from-reset');
+    if (backToLoginBtn) backToLoginBtn.onclick = () => {
+      closeModal(modal);
+      const loginModal = document.getElementById('login-modal');
+      if (loginModal) openModal(loginModal);
+    };
+    const form = modal.querySelector('#password-reset-form');
+    if (form) {
+      form.onsubmit = async function(e) {
+        e.preventDefault();
+        const emailInput = modal.querySelector('#password-reset-email');
+        if (!emailInput) return;
+        const email = emailInput.value.trim();
+        if (!email) {
+          showNotification('Введите email', 'error');
+          return;
+        }
+        try {
+          await APIClient.makeAnonymousRequest('http://localhost/api/users/password-reset-request', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+          });
+          showNotification('Письмо для восстановления пароля отправлено! Проверьте почту.', 'success');
+          closeModal(modal);
+        } catch (err) {
+          if (err && err.message) {
+            showNotification(err.message, 'error');
+          } else {
+            showNotification('Ошибка отправки письма', 'error');
+          }
+        }
+      };
+    }
+  }
+
+  document.addEventListener('click', async function(e) {
+    const target = e.target;
+    if (target && target.matches('a, button')) {
+      if (target.textContent && target.textContent.replace(/\s+/g, '').toLowerCase().includes('забылипароль')) {
+        e.preventDefault();
+        await window.loadPasswordResetModal();
+        const modal = document.getElementById('password-reset-modal');
+        if (modal) openModal(modal);
+      }
+    }
+  });
+
   window.loadMyLinks = async function(skip = 0, limit = window.LINKS_LIMIT, filterParams = null) {
     if (!myLinksList || !myLinksSummary || !myLinksPagination) return;
     if (!TokenManager.isAuthenticated()) {
@@ -893,6 +952,15 @@ function initializeModalHandlers() {
   const switchToLogin = document.getElementById('switch-to-login');
   const loginForm = document.getElementById('login-form');
   const registerForm = document.getElementById('register-form');
+  const forgotPasswordLink = loginModal && loginModal.querySelector('a[href="#"]:not([id])');
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', async function(e) {
+      e.preventDefault();
+      await window.loadPasswordResetModal();
+      const modal = document.getElementById('password-reset-modal');
+      if (modal) openModal(modal);
+    });
+  }
 
   if (loginBtn) {
     loginBtn.addEventListener('click', function(e) {
@@ -2030,7 +2098,7 @@ function showNotification(message, type = 'info') {
     </div>
   `;
   const existingNotifications = document.querySelectorAll('.notification-toast');
-  let bottomOffset = 16; // 4rem = 16px
+  let bottomOffset = 16;
   
   if (existingNotifications.length > 0) {
     existingNotifications.forEach(toast => {
@@ -2280,13 +2348,14 @@ function initializeDoughnutChart(ctxDomains) {
 function togglePassword(button) {
   const input = button.parentElement.querySelector('input');
   const svgElement = button.querySelector('svg');
-  
+  if (!input || !svgElement) return;
+  button.classList.add('animate-lock');
   if (input.type === 'password') {
     input.type = 'text';
     svgElement.innerHTML = `
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke-width="2"></rect>
       <circle cx="12" cy="16" r="1" stroke-width="2"></circle>
-      <path d="m7 11V7a5 5 0 0 1 9 -3 5 5 0 0 1 1 3" stroke-width="2"></path>
+      <path d="M7 11V7a5 5 0 0 1 9 -3 5 5 0 0 1 1 3" stroke-width="2"></path>
     `;
     button.setAttribute('title', 'Скрыть пароль');
   } else {
@@ -2298,6 +2367,7 @@ function togglePassword(button) {
     `;
     button.setAttribute('title', 'Показать пароль');
   }
+  setTimeout(() => button.classList.remove('animate-lock'), 350);
 }
 
 function openEmailVerificationModal(email = '') {
@@ -2353,7 +2423,12 @@ function openEmailVerificationModal(email = '') {
         showNotification('Письмо с активацией отправлено! Проверьте почту', 'success');
         closeModal(modal);
       } catch (error) {
-        showNotification(error.message || 'Ошибка при отправке письма', 'error');
+        if (error && error.originalMessage && typeof error.originalMessage === 'object' && error.originalMessage.error === 'cooldown') {
+          const min = error.originalMessage.remaining_minutes;
+          showNotification(error.originalMessage.message || `Подождите ${min} мин. перед повторной попыткой`, 'error');
+        } else {
+          showNotification(error.message || 'Ошибка при отправке письма', 'error');
+        }
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;

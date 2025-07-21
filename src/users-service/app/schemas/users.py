@@ -96,3 +96,11 @@ class ResendActivationRequest(BaseModel):
 
 class EmailActivationResponse(BaseModel):
     message: str
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+    

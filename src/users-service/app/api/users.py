@@ -1,3 +1,5 @@
+from app.schemas.users import PasswordResetRequest, PasswordResetConfirmRequest
+from app.crud.users import send_password_reset, reset_password_confirm
 from fastapi import APIRouter, HTTPException, status, Request
 from fastapi import Depends
 from datetime import timedelta
@@ -13,7 +15,7 @@ from app.crud.users import (
     create_user, authenticate_user, update_user, logout_user,
     UserAlreadyExistsError, InvalidCredentialsError, InvalidCurrentPasswordError,
     EmailNotVerifiedError, get_user_by_email, UserNotFoundError,
-    activate_user_email, resend_activation_email, EmailActivationCooldownError
+    activate_user_email, resend_activation_email, EmailSendCooldownError
 )
 from app.core.users import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.core.email import email_service
@@ -149,8 +151,50 @@ def resend_activation_email_endpoint(request: ResendActivationRequest, session: 
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    except EmailActivationCooldownError as e:
+    except EmailSendCooldownError as e:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Please wait {e.remaining_minutes} minutes before requesting another activation email"
+            detail={
+                "error": "cooldown",
+                "message": str(e),
+                "remaining_minutes": e.remaining_minutes
+            }
         )
+    
+@router.post("/password-reset-request")
+def password_reset_request(request: PasswordResetRequest, session: SessionDep):
+    try:
+        send_password_reset(session, request.email)
+        return {"message": "Password reset email sent"}
+    except UserNotFoundError:
+        return {"message": "Password reset email sent"}
+    except EmailNotVerifiedError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is not verified")
+    except EmailSendCooldownError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "cooldown",
+                "message": str(e),
+                "remaining_minutes": e.remaining_minutes
+            }
+        )
+    except Exception as e:
+        logger.error(f"Password reset request error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send password reset email")
+
+@router.post("/password-reset-confirm")
+def password_reset_confirm(request: PasswordResetConfirmRequest, session: SessionDep):
+    try:
+        UserCreate(password=request.new_password, email="test@example.com", username="testuser")
+        reset_password_confirm(session, request.token, request.new_password)
+        return {"message": "Password has been reset successfully"}
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EmailNotVerifiedError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is not verified")
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Password reset confirm error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to reset password")

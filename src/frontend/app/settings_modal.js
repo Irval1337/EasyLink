@@ -1,4 +1,3 @@
-// Функция для показа/скрытия пароля (аналогичная edit_link_modal)
 function togglePassword(btn) {
   const input = btn.parentNode.querySelector('input');
   if (!input) return;
@@ -11,11 +10,9 @@ function togglePassword(btn) {
     btn.classList.remove('text-indigo-300');
     btn.classList.add('text-zinc-400');
   }
-  // Анимация: небольшая "встряска"
   btn.classList.add('scale-110');
   setTimeout(() => btn.classList.remove('scale-110'), 120);
 }
-// Открытие и закрытие модального окна настроек
 function openSettingsModal() {
   const modal = document.getElementById('settings-modal');
   if (modal) {
@@ -65,7 +62,6 @@ function clearSettingsForm() {
 
 
 function initSettingsModalEvents() {
-  // Обработка отправки формы настроек
   const form = document.getElementById('settings-form');
   if (form) {
     form.onsubmit = async function(e) {
@@ -94,7 +90,6 @@ function initSettingsModalEvents() {
           },
           body: JSON.stringify(body)
         });
-        // Удаляем старые ошибки/уведомления
         status.textContent = '';
         status.className = 'text-center text-sm mt-2';
         if (!res.ok) {
@@ -105,16 +100,13 @@ function initSettingsModalEvents() {
               if (typeof err.detail === 'string') {
                 errText = translateProfileError(err.detail);
               } else if (typeof err.detail === 'object') {
-                // Если detail — объект, пробуем взять message, first value или сам объект как строку
                 if (err.detail.message) {
                   errText = translateProfileError(err.detail.message);
                 } else {
-                  // Если detail — ValueError, может быть {'__all__': ['Password must ...']}
                   const first = Object.values(err.detail)[0];
                   if (typeof first === 'string') errText = translateProfileError(first);
                   else if (Array.isArray(first) && typeof first[0] === 'string') errText = translateProfileError(first[0]);
                   else {
-                    // Попробуем привести к строке
                     errText = translateProfileError(JSON.stringify(err.detail));
                   }
                 }
@@ -124,7 +116,6 @@ function initSettingsModalEvents() {
           if (typeof showNotification === 'function') {
             showNotification(errText, 'error');
           }
-          // Убираем любые старые ошибки
           status.textContent = '';
           status.className = 'text-center text-sm mt-2';
           return;
@@ -146,7 +137,6 @@ function initSettingsModalEvents() {
         status.textContent = '';
         status.className = 'text-center text-sm mt-2';
       }
-// Перевод ошибок профиля на русский
 function translateProfileError(msg) {
   if (!msg) return 'Ошибка';
   if (msg.includes('Current password is incorrect')) return 'Текущий пароль неверный';
@@ -171,7 +161,6 @@ function translateProfileError(msg) {
     };
   }
 
-  // Кнопка "Выйти со всех устройств"
   const logoutBtn = document.getElementById('logout-all-btn');
   if (logoutBtn) {
     logoutBtn.onclick = async function(e) {
@@ -199,7 +188,6 @@ function translateProfileError(msg) {
     };
   }
 
-  // Открытие/закрытие модалки по кнопкам
   const closeBtn = document.getElementById('close-settings');
   if (closeBtn) {
     closeBtn.onclick = closeSettingsModal;
