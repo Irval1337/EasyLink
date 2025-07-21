@@ -1,8 +1,7 @@
-/* Увеличить ширину модального окна статистики */
+
 #stats-modal .modal-content {
   max-width: 1100px !important;
 }
-/* Карточки для круговых диаграмм */
 .chart-card {
   background: rgba(36, 37, 46, 0.98);
   border-radius: 1.25rem;
@@ -27,7 +26,6 @@
   letter-spacing: 0.02em;
   text-align: center;
 }
-/* Белая иконка календаря для всех date input */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(2) grayscale(1) contrast(2);
   opacity: 1;
@@ -44,7 +42,6 @@ input[type="date"]::placeholder {
 input[type="date"] {
   color-scheme: dark;
 }
-/* --- Супер-стильная таблица последних кликов в модалке статистики --- */
 .stylish-table {
   border-collapse: separate;
   border-spacing: 0;
@@ -92,7 +89,6 @@ input[type="date"] {
 .stylish-table th:last-child, .stylish-table td:last-child {
     border-top-right-radius: 0;
 }
-/* --- Кастомная полоса прокрутки для EasyLink (всегда стильная) --- */
 html, body, .custom-scroll {
   scrollbar-width: none !important;
   scrollbar-color: transparent transparent !important;
@@ -105,7 +101,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .custom-scroll::-webkit-scroll
   background: transparent !important;
 }
 
-/* Скрыть скроллбар для всех элементов */
 * {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -115,7 +110,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .custom-scroll::-webkit-scroll
   width: 0 !important;
   height: 0 !important;
 }
-/* Стилизация иконки календаря для всех date input */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(2);
   opacity: 1;
@@ -133,7 +127,6 @@ input[type="date"] {
   color-scheme: dark;
 }
 
-/* Добавить белую иконку календаря слева от date input (универсально) */
 .date-input-wrapper {
   position: relative;
   display: flex;
@@ -152,7 +145,6 @@ input[type="date"] {
   padding-left: 2.5rem !important;
 }
 
-/* Кнопка 'Показать' — сделать по высоте и стилю как date input */
 #stats-apply-filter {
   height: 42px !important;
   min-height: 42px !important;
@@ -186,7 +178,6 @@ html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover, .custo
 html::-webkit-scrollbar-corner, body::-webkit-scrollbar-corner, .custom-scroll::-webkit-scrollbar-corner {
   background: #18181b;
 }
-/* Супер стильная полоса прокрутки для модальных окон EasyLink */
 .custom-scroll::-webkit-scrollbar {
   width: 8px;
   background: linear-gradient(180deg, #18181b 0%, #23232b 100%);
@@ -211,7 +202,6 @@ html::-webkit-scrollbar-corner, body::-webkit-scrollbar-corner, .custom-scroll::
   scrollbar-width: thin;
   scrollbar-color: #6366f1 #18181b;
 }
-/* CSS styles will be moved here from index.html */
 html { font-family: 'Inter', sans-serif; }
 .fade-in { opacity: 0; transform: translateY(30px); animation: fadeIn 1s .2s forwards; }
 @keyframes fadeIn { to { opacity: 1; transform: translateY(0);} }
@@ -240,17 +230,17 @@ html { font-family: 'Inter', sans-serif; }
 }
 .toggle-checkbox:checked + .toggle-slider:before {
   transform: translateX(18px);
-}      /* Размытие фона при открытии модальных окон */
+}
 body.modal-open {
   overflow: hidden !important;
   position: fixed !important;
   width: 100% !important;
-  background: #18181b !important; /* Принудительно сохраняем темный фон */
+  background: #18181b !important;
 }
 
 html.modal-open {
   overflow: hidden !important;
-  background: #18181b !important; /* Принудительно сохраняем темный фон */
+  background: #18181b !important;
 }body.modal-open header,
 body.modal-open main,
 body.modal-open footer {
@@ -259,7 +249,6 @@ body.modal-open footer {
   transition: filter 0.3s ease !important;
 }
 
-/* Улучшенная анимация для мобильных устройств */
 @media (max-width: 768px) {
   .fade-in { 
     animation: fadeInMobile 0.8s ease-out forwards; 
@@ -277,14 +266,13 @@ body.modal-open footer {
   }
 }
 
-/* Плавные переходы для всех интерактивных элементов */
 button, a, input, select {
   transition: all 0.2s ease;
-}    /* Стили для модальных окон */
+}
 .modal-backdrop {
   background: rgba(0, 0, 0, 0.7) !important;
   backdrop-filter: blur(3px) !important;
-  z-index: 9000 !important; /* Ниже z-индекса уведомлений (99999) */
+  z-index: 9000 !important;
   animation: fadeIn 0.3s ease !important;
   position: fixed !important;
   top: 0 !important;
@@ -296,7 +284,6 @@ button, a, input, select {
   justify-content: center !important;
 }
 
-/* Улучшенные стили для модального контента */
 .modal-content {
   background: rgba(24, 24, 27, 0.95) !important;
   backdrop-filter: blur(20px) !important;
@@ -316,7 +303,6 @@ button, a, input, select {
   }
 }
 
-/* Дополнительное затемнение для лучшего контраста */
 body.modal-open::before {
   content: '';
   position: fixed;
@@ -329,7 +315,6 @@ body.modal-open::before {
   pointer-events: none;
 }
 
-/* Убедимся, что все модальные окна скрыты по умолчанию */
 [id$="-modal"] {
   display: none !important;
 }
@@ -359,7 +344,6 @@ body.modal-open::before {
     transform: scale(1) translateY(0);
   }
 }
-  /* Дополнительные стили для четкости модальных окон */
 [id$="-modal"] .modal-content {
   background: #18181b !important;
   border: 1px solid #3f3f46 !important;
@@ -378,7 +362,6 @@ body.modal-open::before {
   backdrop-filter: none !important;
 }
 
-/* Принудительно убираем размытие с модальных окон */
 body.modal-open [id$="-modal"] {
   filter: none !important;
 }
@@ -395,7 +378,6 @@ body.modal-open {
   background: linear-gradient(to top right, #18181b, #0c0a09, #27272a) !important;
 }
 
-/* Исправляем обрезание tooltip в круговых диаграммах */
 .chart-card {
   overflow: visible !important;
 }
@@ -404,7 +386,6 @@ body.modal-open {
   overflow: visible !important;
 }
 
-/* Стили для корректного отображения tooltip в диаграммах */
 .chart-container {
   overflow: visible !important;
 }
@@ -413,19 +394,17 @@ body.modal-open {
   position: relative !important;
 }
 
-/* Обеспечиваем правильное отображение tooltip поверх других элементов */
 .chartjs-tooltip {
   z-index: 9999 !important;
   position: absolute !important;
   overflow: visible !important;
 }
 
-/* Убираем ограничения overflow для контейнеров с диаграммами */
+
 [id*="chart"] {
   overflow: visible !important;
 }
 
-/* Исправляем обрезание tooltip в круговых диаграммах */
 .bg-zinc-900\/80.rounded-2xl {
   overflow: visible !important;
 }
@@ -434,7 +413,6 @@ body.modal-open {
   overflow: visible !important;
 }
 
-/* Стили для улучшенных уведомлений */
 .notification-toast {
   backdrop-filter: blur(10px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -445,7 +423,6 @@ body.modal-open {
   transform: translateX(-5px) !important;
 }
 
-/* Анимация для уведомлений */
 @keyframes slideInFromRight {
   from {
     transform: translateX(100%);
@@ -468,7 +445,6 @@ body.modal-open {
   }
 }
 
-/* Стили для кнопок переключения пароля */
 button[onclick*="togglePassword"] {
   transition: all 0.2s ease;
   border-radius: 6px;

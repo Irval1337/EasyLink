@@ -39,6 +39,8 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if path == '/password-reset':
             self.path = '/password-reset.html'
             return super().do_GET()
+        if path == '/favicon.ico':
+            return super().do_GET()
         if path == '/':
             self.path = '/index.html'
             return super().do_GET()
